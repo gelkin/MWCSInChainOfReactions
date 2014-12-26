@@ -1,0 +1,69 @@
+breedthreads = 1
+evalthreads = 1
+
+seed.0		= 123032
+state		= ec.simple.SimpleEvolutionState
+
+pop		    = ec.Population
+init		= ec.simple.SimpleInitializer
+finish		= ec.simple.SimpleFinisher
+breed		= ec.simple.SimpleBreeder
+eval		= ec.simple.SimpleEvaluator
+exch		= ec.simple.SimpleExchanger
+
+### Single objective: max weight of connected subgraph:
+### pop.subpop.0.species.fitness 	= ec.simple.SimpleFitness
+### stat		= ec.simple.SimpleStatistics
+
+# Multi-objective: <simple objective> and min number of connected components
+pop.subpop.0.species.fitness = ec.multiobjective.MultiObjectiveFitness
+pop.subpop.0.species.fitness.num-objectives = 3
+
+pop.subpop.0.species.fitness.maximize.0 = true
+pop.subpop.0.species.fitness.maximize.1 = false
+pop.subpop.0.species.fitness.maximize.2 = true
+
+# Statistics
+stat = ec.multiobjective.MultiObjectiveStatistics
+stat.front = $./src/main/resources/front.stat
+stat.file		= $./src/main/resources/mwcs.stat
+
+
+generations = 200
+
+quit-on-run-complete	= true
+checkpoint		    = false
+checkpoint-prefix	= ec
+checkpoint-modulo	= 1
+
+pop.subpops		= 1
+pop.subpop.0	= ec.Subpopulation
+
+pop.subpop.0.size = 30
+
+pop.subpop.0.duplicate-retries 	= 0
+
+pop.subpop.0.species		= ec.vector.BitVectorSpecies
+pop.subpop.0.species.ind	= ec.vector.BitVectorIndividual
+
+pop.subpop.0.species.genome-size	= 1114
+
+pop.subpop.0.species.crossover-type	= any
+pop.subpop.0.species.mutation-type	= flip
+
+# only for "any" crossover
+pop.subpop.0.species.crossover-prob	= 0.5
+pop.subpop.0.species.mutation-prob	= 0.001
+
+# Use custom mutation class
+pop.subpop.0.species.pipe = ru.ifmo.ctddev.mazin.MWCSInChainOfReactions.GraphMutatorPipeline
+pop.subpop.0.species.pipe.source.0	= ec.vector.breed.VectorCrossoverPipeline
+
+# Selection
+pop.subpop.0.species.pipe.source.0.source.0 = ec.select.BestSelection
+pop.subpop.0.species.pipe.source.0.source.1 = ec.select.BestSelection
+
+select.best.n = 15
+select.best.size = 4
+
+eval.problem            = ru.ifmo.ctddev.mazin.MWCSInChainOfReactions.MWCGProblem
