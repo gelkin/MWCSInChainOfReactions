@@ -47,10 +47,12 @@
                 <artifactId>exec-maven-plugin</artifactId>
                 <version>1.2.1</version>
                 <configuration>
-                    <mainClass>ec.Evolve</mainClass>
+                    <mainClass>ru.ifmo.ctddev.mazin.MWCSInChainOfReactions.Solver</mainClass>
                     <arguments>
-                        <argument>-file</argument>
-                        <argument>src/main/resources/mwcs.params</argument>
+                        <argument>src/main/resources/new_nodes.txt</argument>
+                        <argument>src/main/resources/new_edges.txt</argument>
+                        <argument>src/main/resources/new_signals.txt</argument>
+                        <argument>src/main/resources/mwcs-single.params</argument>
                     </arguments>
                 </configuration>
             </plugin>

@@ -4,6 +4,7 @@ import ec.EvolutionState;
 import ec.Individual;
 import ec.Problem;
 import ec.multiobjective.MultiObjectiveFitness;
+import ec.simple.SimpleFitness;
 import ec.simple.SimpleProblemForm;
 import ec.util.Parameter;
 import ec.vector.BitVectorIndividual;
@@ -18,8 +19,9 @@ import java.util.HashMap;
 
 public class MWCGProblem extends Problem implements SimpleProblemForm {
     private Graph graph;
-    private static final String VERTICES_FILE = "./src/main/resources/nodes.txt";
-    private static final String EDGES_FILE = "./src/main/resources/edges.txt";
+    private static String verticesFile;
+    private static String edgesFile;
+    private static String signalsFile;
 
     @Override
     public void setup(final EvolutionState state, final Parameter base) {
@@ -27,27 +29,27 @@ public class MWCGProblem extends Problem implements SimpleProblemForm {
         initGraphFromFiles(state);
     }
 
-    private void initGraphFromFiles(final EvolutionState state) {
-        // Vertices first:
-        Map<Signal, Double> signals = new HashMap<>();
-        
-        try {
-            System.out.println((new File(".")).getCanonicalPath());
-        } catch (IOException e) {
-            e.printStackTrace();
+    private static boolean areSourceFileSet = false;
+    public static void setSourceFiles(String verticesFile, String edgesFile, String signalsFile) {
+        if (!areSourceFileSet) {
+            MWCGProblem.verticesFile = verticesFile;
+            MWCGProblem.edgesFile = edgesFile;
+            MWCGProblem.signalsFile = signalsFile;
+            areSourceFileSet = true;
         }
-        
-        LinkedHashMap<String, Signal> verticesToSignal = new LinkedHashMap<>();
-        try(BufferedReader br = new BufferedReader(new FileReader(VERTICES_FILE))) {
+    }
+
+    private void initGraphFromFiles(final EvolutionState state) {
+
+        // Vertices:
+        LinkedHashMap<String, String> verticesToSignal = new LinkedHashMap<>();
+        try(BufferedReader br = new BufferedReader(new FileReader(verticesFile))) {
             String line = br.readLine();
 
             while (line != null) {
-                String[] vertexInfo = line.split(" ");
+                String[] vertexInfo = line.split("\\t");
                 String vertex = vertexInfo[0];
-                double weight = Double.parseDouble(vertexInfo[1]);
-
-                Signal signal = new Signal(weight);
-                signals.put(signal, weight);
+                String signal = vertexInfo[1];
 
                 verticesToSignal.put(vertex, signal);
 
@@ -55,37 +57,37 @@ public class MWCGProblem extends Problem implements SimpleProblemForm {
             }
 
         } catch (FileNotFoundException e) {
-            state.output.fatal("Cannot find file " + VERTICES_FILE + ".", null);
+            state.output.fatal("Cannot find file " + verticesFile + ".", null);
             e.printStackTrace();
         } catch (IOException e) {
-            state.output.fatal("Error occurred while reading from file " + VERTICES_FILE + ".", null);
+            state.output.fatal("Error occurred while reading from file " + verticesFile + ".", null);
             e.printStackTrace();
         }
 
-        // Edges
-        LinkedHashMap<String, LinkedHashMap<String, Signal>> edgesAsMap = new LinkedHashMap<>();
+        // Edges:
+        LinkedHashMap<String, LinkedHashMap<String, String>> edgesAsMap = new LinkedHashMap<>();
         List<Edge<String>> edges = new ArrayList<>();
         Map<String, Map<String, Integer>> edgesToIndex = new HashMap<>();
 
+        System.out.println("edgesFile: " + edgesFile);
+
         int edgeNumber = 0;
-        try(BufferedReader br = new BufferedReader(new FileReader(EDGES_FILE))) {
+        try(BufferedReader br = new BufferedReader(new FileReader(edgesFile))) {
             String line = br.readLine();
 
             while (line != null) {
-                String[] edgeInfo = line.split(" ");
+                String[] edgeInfo = line.split("\\t");
                 String from = edgeInfo[0];
                 String to = edgeInfo[1];
-                double weight = Double.parseDouble(edgeInfo[2]);
-                Signal signal = new Signal(weight);
-                signals.put(signal, weight);
+                String signal = edgeInfo[2];
 
                 if (!edgesAsMap.containsKey(from)) {
-                    edgesAsMap.put(from, new LinkedHashMap<String, Signal>());
+                    edgesAsMap.put(from, new LinkedHashMap<String, String>());
                     edgesToIndex.put(from, new HashMap<String, Integer>());
                 }
 
                 if (!edgesAsMap.containsKey(to)) {
-                    edgesAsMap.put(to, new LinkedHashMap<String, Signal>());
+                    edgesAsMap.put(to, new LinkedHashMap<String, String>());
                     edgesToIndex.put(to, new HashMap<String, Integer>());
                 }
 
@@ -104,10 +106,33 @@ public class MWCGProblem extends Problem implements SimpleProblemForm {
             }
 
         } catch (FileNotFoundException e) {
-            state.output.fatal("Cannot find file " + EDGES_FILE + ".", null);
+            state.output.fatal("Cannot find file " + edgesFile + ".", null);
             e.printStackTrace();
         } catch (IOException e) {
-            state.output.fatal("Error occurred while reading from file " + EDGES_FILE + ".", null);
+            state.output.fatal("Error occurred while reading from file " + edgesFile + ".", null);
+            e.printStackTrace();
+        }
+
+        // Signals:
+        Map<String, Double> signals = new HashMap<>();
+        try(BufferedReader br = new BufferedReader(new FileReader(signalsFile))) {
+            String line = br.readLine();
+
+            while (line != null) {
+                String[] vertexInfo = line.split("\\t");
+                String signal = vertexInfo[0];
+                double value = Double.parseDouble(vertexInfo[1]);
+
+                signals.put(signal, value);
+
+                line = br.readLine();
+            }
+
+        } catch (FileNotFoundException e) {
+            state.output.fatal("Cannot find file " + verticesFile + ".", null);
+            e.printStackTrace();
+        } catch (IOException e) {
+            state.output.fatal("Error occurred while reading from file " + verticesFile + ".", null);
             e.printStackTrace();
         }
 
@@ -135,6 +160,7 @@ public class MWCGProblem extends Problem implements SimpleProblemForm {
             ind2AsList.add(ind2.genome[i]);
         }
 
+        /*
         if (!(ind2.fitness instanceof MultiObjectiveFitness)) {
             state.output.fatal("Whoa!  It's not a MultiObjectiveFitness!!!", null);
         }
@@ -142,6 +168,15 @@ public class MWCGProblem extends Problem implements SimpleProblemForm {
         double[] objectives = graph.multiObjectiveFitness(ind2AsList);
 
         ((MultiObjectiveFitness) ind2.fitness).setObjectives(state, objectives);
+        */
+
+        if (!(ind2.fitness instanceof SimpleFitness)) {
+            state.output.fatal("Whoa!  It's not a SimpleFitness!!!", null);
+        }
+
+        ((SimpleFitness)ind2.fitness).setFitness(state,
+                                                 graph.fitness(ind2AsList, 4),
+                                                 false);
 
         ind2.evaluated = true;
     }

@@ -1,10 +1,10 @@
 package ru.ifmo.ctddev.mazin.MWCSInChainOfReactions;
 
-public class Edge<V> {
-    public V first;
-    public V second;
+public class Pair<T,S> {
+    public T first;
+    public S second;
 
-    public Edge(V first, V second) {
+    public Pair(T first, S second) {
         this.first = first;
         this.second = second;
     }
