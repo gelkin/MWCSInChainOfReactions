@@ -40,77 +40,65 @@ public class Graph<V, S> implements Cloneable {
      * Main fitness function.
      * 
      * @param 'p':
-     * p < 0 -  return  DoubleMinValue
+     * p < 0 -  return  DoubleNegativeInfinity
      * p == 0 - search in whole graph
      * 0 < p < n - search in first 'p' connected components
      * p >= n - search in whole graph
+     *  where 'n' - number of connected components in graph
     */
     public double fitness(List<Boolean> originalMask, int p) {
         if (p < 0) {
-            return Double.MIN_VALUE;
+            /* Multi
+            double[] result = {Double.NEGATIVE_INFINITY, 0, 0};
+            return result;
+            */
+            return Double.NEGATIVE_INFINITY;
         }
 
         List<Boolean> mask = updateMask(originalMask, p);
         List<Integer> edgeToComponent = findComponents(mask);
+
+        // Multi: return multiObjectiveFitness(mask, edgeToComponent);
+        /*
         int biggestComponentNumber = getBiggestByEdgeComponentNumber(mask, edgeToComponent);
-        double biggestComponentFitness = getFitnessOfComponent(biggestComponentNumber, mask, edgeToComponent);
+        double result = getFitnessOfComponent(mask, edgeToComponent, biggestComponentNumber);
+        */
 
-        return biggestComponentFitness;
+        double[] info = getHeaviestComponentInfo(mask, edgeToComponent);
+        double result = info[0];
+
+        // int[] sizes = getComponentSize(edgeToComponent, (int) info[1]);
+        //System.out.println("Edges = " + sizes[0] + "    Vertices = " + sizes[1]);
+
+        return result;
     }
 
-    public List<Boolean> getBiggestComponent(List<Boolean> mask) {
-        List<Integer> edgeToComponent = findComponents(mask);
-        int biggestcomponentNumber = getBiggestByEdgeComponentNumber(mask, edgeToComponent);
-
-        List<Boolean> biggestComponentMask = new ArrayList<>(mask.size());
-        for (int i = 0; i < edges.size(); ++i) {
-            if (edgeToComponent.get(i) == biggestcomponentNumber) {
-                biggestComponentMask.add(true);
-            } else {
-                biggestComponentMask.add(false);
-            }
-        }
-
-        return biggestComponentMask;
-    }
-
-    // todo mb remove
-    // returns array with values [fitness(), numberOfComponents, edgesNumber]
+    // returns array with values [fitness(), edgesOfComponent, verticesOfComponent]
     private double[] multiObjectiveFitness(List<Boolean> mask,
-                                          List<Integer> edgeToComponent) {
+                                           List<Integer> edgeToComponent) {
+        double[] objectives = new double[2];
+        double[] info = getHeaviestComponentInfo(mask, edgeToComponent);
+        objectives[1] = info[0];
 
-        double[] objectives = new double[3];
-        objectives[2] = fitness(mask, 0) / 100;
-
-        // returns: [numberOfEdges, numberOfVertices]
-    
-        // objectives[1] = componentNumber;
-        
-        int[] componentSize = new int[2];
-        Map<V, Boolean> isCountedVertex = new HashMap<>();
-        for (int i = 0; i < mask.size(); ++i) {
-            if (edgeToComponent.get(i) == /* majorComponentIndex todo*/0) {
-                ++componentSize[0];
-                V first = edges.get(i).first;
-                V second = edges.get(i).second;
-
-                if (!isCountedVertex.containsKey(first)) {
-                    isCountedVertex.put(first, true);
-                    ++componentSize[1];
-                }
-
-                if (!isCountedVertex.containsKey(second)) {
-                    isCountedVertex.put(second, true);
-                    ++componentSize[1];
-                }
-            }
-        }
-
-        // put numberOfEdges as objective
-        objectives[0] = componentSize[0];
-        objectives[1] = componentSize[1];
+        int[] sizes = getComponentSize(edgeToComponent, (int) info[1]);
+        objectives[0] = sizes[1];
 
         return objectives;
+    }
+    
+    public List<Boolean> getComponentByNumber(List<Boolean> mask, int component) {
+        List<Integer> edgeToComponent = findComponents(mask);
+
+        List<Boolean> componentMask = new ArrayList<>(mask.size());
+        for (int i = 0; i < edges.size(); ++i) {
+            if (edgeToComponent.get(i) == component) {
+                componentMask.add(true);
+            } else {
+                componentMask.add(false);
+            }
+        }
+
+        return componentMask;
     }
 
     private int getBiggestByEdgeComponentNumber(List<Boolean> mask,
@@ -134,29 +122,50 @@ public class Graph<V, S> implements Cloneable {
         return res;
     }
 
-    private double getHeaviestComponentFitness(List<Boolean> mask,
-                                               List<Integer> edgeToComponent) {
-        double fitness = Double.MIN_VALUE;
-        for (int i = 0; i < componentsNumber; ++i) {
-            double newFitness = getFitnessOfComponent(i, mask, edgeToComponent);
+    // returns: [heaviestComponentFitness, heaviestComponentNumber]
+    public double[] getHeaviestComponentInfo(List<Boolean> mask) {
+        List<Integer> edgeToComponent = findComponents(mask);
+        return getHeaviestComponentInfo(mask, edgeToComponent);
+    }
+
+    // returns: [heaviestComponentFitness, heaviestComponentNumber]
+    private double[] getHeaviestComponentInfo(List<Boolean> mask,
+                                              List<Integer> edgeToComponent) {
+        double[] componentInfo = new double[2];
+
+        double fitness = Double.NEGATIVE_INFINITY;
+        double component = 0.0;
+        for (int i = 1; i <= componentsNumber; ++i) {
+            double newFitness = getFitnessOfComponent(mask, edgeToComponent, i);
             if (fitness < newFitness) {
                 fitness = newFitness;
+                component = i;
             }
         }
 
-        return fitness;
+        /*if (component == 0.0) {
+            int x = 0;
+            for (int i = 1; i <= componentsNumber; ++i) {
+                double newFitness = getFitnessOfComponent(mask, edgeToComponent, i);
+                if (fitness < newFitness) {
+                    fitness = newFitness;
+                    component = i;
+                }
+            }
+        }*/
 
+        componentInfo[0] = fitness;
+        componentInfo[1] = component;
+
+        return componentInfo;
     }
 
     // returns: [numberOfEdges, numberOfVertices]
-    private int[] getBiggestByEdgeComponentSize(List<Boolean> mask,
-                                         List<Integer> edgeToComponent) {
-        fitness(mask, 0);
-
+    private int[] getComponentSize(List<Integer> edgeToComponent, int component) {
         int[] componentSize = new int[2];
         Map<V, Boolean> isCountedVertex = new HashMap<>();
-        for (int i = 0; i < mask.size(); ++i) {
-            if (edgeToComponent.get(i) == /*majorComponentIndex*/ 0) {
+        for (int i = 0; i < edges.size(); ++i) {
+            if (edgeToComponent.get(i) == component) {
                 ++componentSize[0];
                 V first = edges.get(i).first;
                 V second = edges.get(i).second;
@@ -174,8 +183,7 @@ public class Graph<V, S> implements Cloneable {
         }
 
         return componentSize;
-    }  
-    
+    }
 
     public int getEdgesNumber() {
         return edges.size();
@@ -186,7 +194,9 @@ public class Graph<V, S> implements Cloneable {
         return findComponents(wholeGraphMask);
     }
 
+    // Use this field carefully as it updates each time with calling 'findComponents(...)'.
     private int componentsNumber;
+
     // return: list.get(i) = number_of_component , if edge #i match the 'mask'
     //                       0 , if edge #i doesn't match the 'mask'
     private List<Integer> findComponents(List<Boolean> mask) {
@@ -205,6 +215,7 @@ public class Graph<V, S> implements Cloneable {
         return edgeToComponent;
     }
 
+    // May be called only from 'findComponents(...)' function.
     private void dfs(int edgeNumber, int componentNumber, List<Boolean> mask, List<Integer> edgeToComponent) {
         edgeToComponent.set(edgeNumber, componentNumber);
 
@@ -230,11 +241,11 @@ public class Graph<V, S> implements Cloneable {
         }
     }
 
-    private double getFitnessOfComponent(int compIndex, List<Boolean> mask, List<Integer> edgeToComponent) {
+    private double getFitnessOfComponent(List<Boolean> mask, List<Integer> edgeToComponent, int component) {
         double fitness = 0.0;
         Set<S> uniqueSignals = new HashSet<>();
         for (int i = 0; i < edges.size(); ++i) {
-            if (mask.get(i) && edgeToComponent.get(i) == compIndex) {
+            if (mask.get(i) && edgeToComponent.get(i) == component) {
                 Edge<V> edge = edges.get(i);
                 uniqueSignals.add(edgesAsMap.get(edge.first).get(edge.second));
 
@@ -260,29 +271,6 @@ public class Graph<V, S> implements Cloneable {
         return fitness;
     }
 
-    // Returns mask with edges only in first 'p' largest connected components.
-    private List<Boolean> updateMask(List<Boolean> mask, int p) {
-        if (p == 0) {
-            return mask;
-        }
-
-        List<Boolean> newMask = new ArrayList<>(Collections.nCopies(mask.size(), false));
-        mainLoop:
-        for (int i = 0; i < mask.size(); ++i) {
-            if (mask.get(i)) {
-                // todo optimize number of operations
-                for (int j = 0; j < p; ++j) {
-                    if (orderToNumberForComponents[j] == (edgeToComponentInWholeGraph.get(i) - 1)) {
-                        newMask.set(i, true);
-                        continue mainLoop;
-                    }
-                }
-            }
-        }
-
-        return newMask;
-    }
-
     // todo down
     // Get info about subgraph presented by mask:
     public List<Pair<V, S>> getVerticesToSignalsByMask(List<Boolean> mask) {
@@ -298,7 +286,7 @@ public class Graph<V, S> implements Cloneable {
         Iterator<V> it = vertices.iterator();
         while (it.hasNext()) {
             V vertex = it.next();
-            result.add(new Pair<V, S>(vertex, verticesToSignals.get(vertex)));
+            result.add(new Pair<>(vertex, verticesToSignals.get(vertex)));
         }
 
         return result;
@@ -337,6 +325,29 @@ public class Graph<V, S> implements Cloneable {
         return result;
     }
     // todo up
+
+    // Returns mask with edges only in first 'p' largest connected components.
+    private List<Boolean> updateMask(List<Boolean> mask, int p) {
+        if (p == 0) {
+            return mask;
+        }
+
+        List<Boolean> newMask = new ArrayList<>(Collections.nCopies(mask.size(), false));
+        mainLoop:
+        for (int i = 0; i < mask.size(); ++i) {
+            if (mask.get(i)) {
+                // todo optimize number of operations
+                for (int j = 0; j < p; ++j) {
+                    if (orderToNumberForComponents[j] == (edgeToComponentInWholeGraph.get(i) - 1)) {
+                        newMask.set(i, true);
+                        continue mainLoop;
+                    }
+                }
+            }
+        }
+
+        return newMask;
+    }
 
     // Returns array of the form:
     // <order_of_connected_component_by_size> -> <number_of_connected_component>

@@ -9,12 +9,12 @@ import java.util.*;
 
 
 public class MakeSignals {
-    private static final String VERTICES_FILE = "./src/main/resources/old_resources/nodes.txt";
-    private static final String EDGES_FILE = "./src/main/resources/old_resources/edges.txt";
+    private static final String VERTICES_FILE = "./src/main/resources/old_resources/old_nodes.txt";
+    private static final String EDGES_FILE = "./src/main/resources/old_resources/old_edges.txt";
 
-    public static final String NODES_PATH = "./src/main/resources/new_nodes.txt";
-    public static final String EDGES_PATH = "./src/main/resources/new_edges.txt";
-    public static final String SIGNALS_PATH = "./src/main/resources/new_signals.txt";
+    public static final String NODES_PATH = "./src/main/resources/nodes.txt";
+    public static final String EDGES_PATH = "./src/main/resources/edges.txt";
+    public static final String SIGNALS_PATH = "./src/main/resources/signals.txt";
 
     public static void main(String[] args) {
 

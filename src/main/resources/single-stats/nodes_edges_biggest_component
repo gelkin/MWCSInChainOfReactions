@@ -1,0 +1,14 @@
+ipJy6VfLzF	edb879bc	Node 0
+zFu165YoSI	7a117122	Node 1
+lAuORurXbh	c8104a7b	Node 2
+dDfb8NivDN	7a117122	Node 3
+NjKNWxgFjC	9b46d6f2	Node 4
+VexjVXAgtF	ab6602dc	Node 5
+
+EDGES
+0	lAuORurXbh	ipJy6VfLzF	9fd65716	Edge 0
+1	ipJy6VfLzF	zFu165YoSI	32f88dc1	Edge 1
+2	zFu165YoSI	dDfb8NivDN	22b3b936	Edge 2
+3	zFu165YoSI	VexjVXAgtF	22b3b936	Edge 3
+4	dDfb8NivDN	VexjVXAgtF	22b3b936	Edge 4
+5	VexjVXAgtF	NjKNWxgFjC	3e9cd3c8	Edge 5

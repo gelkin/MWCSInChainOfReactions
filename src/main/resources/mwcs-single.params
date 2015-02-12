@@ -1,5 +1,5 @@
-breedthreads = 1
-evalthreads = 1
+breedthreads = auto
+evalthreads = auto
 
 seed.0		= time
 state		= ec.simple.SimpleEvolutionState
@@ -14,9 +14,14 @@ exch		= ec.simple.SimpleExchanger
 ### Single objective: max weight of connected subgraph:
 pop.subpop.0.species.fitness 	= ec.simple.SimpleFitness
 stat		= ec.simple.SimpleStatistics
-stat.file		= $./src/main/resources/mwcs-single.stat
+stat.file	= $./src/main/resources/mwcs-single.stat
 
-generations = 2000
+stat.do-generation = false
+#stat.do-message = false
+#stat.do-per-generation-description = true
+
+
+generations = 1000
 
 quit-on-run-complete	= true
 checkpoint		    = false
@@ -26,7 +31,7 @@ checkpoint-modulo	= 1
 pop.subpops		= 1
 pop.subpop.0	= ec.Subpopulation
 
-pop.subpop.0.size = 30
+pop.subpop.0.size = 50
 
 pop.subpop.0.duplicate-retries 	= 0
 
@@ -40,7 +45,7 @@ pop.subpop.0.species.mutation-type	= flip
 
 # only for "any" crossover
 pop.subpop.0.species.crossover-prob	= 0.5
-pop.subpop.0.species.mutation-prob	= 0.001
+pop.subpop.0.species.mutation-prob	= 0.005
 
 # Use custom mutation class
 pop.subpop.0.species.pipe = ec.vector.breed.VectorMutationPipeline
