@@ -1,24 +1,15 @@
 package ru.ifmo.ctddev.mazin.MWCSInChainOfReactions;
 
-import ec.EvolutionState;
-
-import java.awt.font.GraphicAttribute;
 import java.io.*;
-import java.nio.charset.Charset;
-import java.nio.charset.StandardCharsets;
-import java.nio.file.Files;
-import java.nio.file.Path;
-import java.nio.file.Paths;
 import java.util.*;
 
 public class Solver {
-    private static final String GENOME_SIZE_FROM_FILE = "genome-size-from-file";
     private static final String FILE_PARAM = "-file";
-    private static final String EVOLVE_SUFFIX = "-evolve.";
+    private static final String PARAM_IDENTIFIER = "-p";
+    private static final String GENOME_SIZE_PARAM = "pop.subpop.0.species.genome-size=";
     private static final String STAT_SUFFIX = ".stat";
     private static final String VERTICES_OUTFILE_NAME = "./src/main/resources/nodes.tsv";
     private static final String EDGES_OUTFILE_NAME = "./src/main/resources/edges.tsv";
-    private static final int STRINGS_TO_SKIP = 5;
 
     private Graph graph;
 
@@ -39,32 +30,31 @@ public class Solver {
 
         graph = initGraphFromFiles(verticesFile, edgesFile, signalsFile);
         MWCGProblem.setGraph(graph);
+        GraphMutatorPipeline.setGraph(graph);
 
-        String newParametersFile = "";
+        int numberOfEdges;
         try {
-            int numberOfEdges = getNumberOfLines(edgesFile);
 
+            numberOfEdges = getNumberOfLines(edgesFile);
             if (numberOfEdges == -1) {
                 return;
             }
-
-            newParametersFile = createFileWithReplacedString(parametersFile,
-                    GENOME_SIZE_FROM_FILE,
-                    (new Integer(numberOfEdges)).toString());
         } catch (IOException e) {
             System.out.println("Error occurred while reading from file.");
             e.printStackTrace();
+            return;
         }
 
-        final String[] newArgs = new String[2];
+        final String[] newArgs = new String[4];
         newArgs[0] = FILE_PARAM;
-        newArgs[1] = newParametersFile;
+        newArgs[1] = parametersFile;
+        newArgs[2] = PARAM_IDENTIFIER;
+        newArgs[3] = GENOME_SIZE_PARAM + numberOfEdges;
 
-        // If you want get .tsv files from mwcs-single.stat, just comment next line
-        // ( otherwise ec.Evolve.main(...) calls System.exit(0) )
-        // ec.Evolve.main(newArgs);
+        EvolveHelper.mainHelper(newArgs);
 
-        // Let's return result subgraphin readable form
+        // Let's return result subgraph in readable form
+
         String[] parts = parametersFile.split("\\.");
         String statFile = parts[0] + STAT_SUFFIX;
         List<Boolean> bestIndividual = getBestIndividual(statFile);
@@ -72,6 +62,7 @@ public class Solver {
         int heaviestComponentNumber = (int) graph.getHeaviestComponentInfo(bestIndividual)[1];
         List<Boolean> heaviestComponent = graph.getComponentByNumber(bestIndividual, heaviestComponentNumber);
         writeResults(heaviestComponent);
+
     }
 
     private Graph initGraphFromFiles(String verticesFile, String edgesFile, String signalsFile) {
@@ -190,39 +181,25 @@ public class Solver {
         return linesNumber;
     }
 
-    // fileName.ext -> fileName-evolve.ext
-    private String createFileWithReplacedString(String fileName, String oldString, String newString) throws IOException {
-        Path oldPath = Paths.get(fileName);
-        Charset charset = StandardCharsets.UTF_8;
-
-        String content = new String(Files.readAllBytes(oldPath), charset);
-        content = content.replaceAll(oldString, newString);
-
-        String[] parts = fileName.split("\\.");
-        String newFile = parts[0] + EVOLVE_SUFFIX + parts[1];
-        Path newPath = Paths.get(newFile);
-        Files.write(newPath, content.getBytes(charset));
-        return newFile;
-    }
-
     private List<Boolean> getBestIndividual(String fileName) {
-        String individual = "";
+        String lastLine = "";
         try (FileInputStream fs = new FileInputStream(fileName)) {
             BufferedReader br = new BufferedReader(new InputStreamReader(fs));
-            for(int i = 0; i < STRINGS_TO_SKIP; ++i) {
-                br.readLine();
+            String line;
+
+            while ((line = br.readLine()) != null) {
+                lastLine = line;
             }
-            individual = br.readLine();
         } catch (FileNotFoundException e) {
             e.printStackTrace();
         } catch (IOException e) {
             e.printStackTrace();
         }
 
-        if (individual != "") {
-            List<Boolean> mask = new ArrayList<>(individual.length());
-            for (int i = 0; i < individual.length(); ++i) {
-                if (individual.charAt(i) == '0') {
+        if (lastLine != "") {
+            List<Boolean> mask = new ArrayList<>(lastLine.length());
+            for (int i = 0; i < lastLine.length(); ++i) {
+                if (lastLine.charAt(i) == '0') {
                     mask.add(false);
                 } else {
                     mask.add(true);

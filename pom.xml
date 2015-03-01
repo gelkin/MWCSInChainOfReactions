@@ -49,10 +49,10 @@
                 <configuration>
                     <mainClass>ru.ifmo.ctddev.mazin.MWCSInChainOfReactions.Solver</mainClass>
                     <arguments>
-                        <argument>src/main/resources/new_nodes.txt</argument>
-                        <argument>src/main/resources/new_edges.txt</argument>
-                        <argument>src/main/resources/new_signals.txt</argument>
-                        <argument>src/main/resources/mwcs-single.params</argument>
+                        <argument>src/main/resources/nodes.txt</argument>
+                        <argument>src/main/resources/edges.txt</argument>
+                        <argument>src/main/resources/signals.txt</argument>
+                        <argument>src/main/resources/mwcs-multi.params</argument>
                     </arguments>
                 </configuration>
             </plugin>

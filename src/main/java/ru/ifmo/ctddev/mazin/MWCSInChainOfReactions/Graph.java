@@ -46,42 +46,36 @@ public class Graph<V, S> implements Cloneable {
      * p >= n - search in whole graph
      *  where 'n' - number of connected components in graph
     */
-    public double fitness(List<Boolean> originalMask, int p) {
+    public double[] fitness(List<Boolean> originalMask, int p) {
         if (p < 0) {
-            /* Multi
+            // Multi
             double[] result = {Double.NEGATIVE_INFINITY, 0, 0};
             return result;
-            */
-            return Double.NEGATIVE_INFINITY;
         }
 
         List<Boolean> mask = updateMask(originalMask, p);
         List<Integer> edgeToComponent = findComponents(mask);
 
-        // Multi: return multiObjectiveFitness(mask, edgeToComponent);
-        /*
-        int biggestComponentNumber = getBiggestByEdgeComponentNumber(mask, edgeToComponent);
-        double result = getFitnessOfComponent(mask, edgeToComponent, biggestComponentNumber);
-        */
-
-        double[] info = getHeaviestComponentInfo(mask, edgeToComponent);
-        double result = info[0];
-
-        // int[] sizes = getComponentSize(edgeToComponent, (int) info[1]);
-        //System.out.println("Edges = " + sizes[0] + "    Vertices = " + sizes[1]);
-
-        return result;
+        // Multi:
+        return multiObjectiveFitness(mask, edgeToComponent);
     }
 
     // returns array with values [fitness(), edgesOfComponent, verticesOfComponent]
+    private static final int NUM_OBJECTIVES = 2;
     private double[] multiObjectiveFitness(List<Boolean> mask,
                                            List<Integer> edgeToComponent) {
-        double[] objectives = new double[2];
-        double[] info = getHeaviestComponentInfo(mask, edgeToComponent);
-        objectives[1] = info[0];
+        double[] objectives = new double[NUM_OBJECTIVES];
 
-        int[] sizes = getComponentSize(edgeToComponent, (int) info[1]);
-        objectives[0] = sizes[1];
+        // double[] info = getHeaviestComponentInfo(mask, edgeToComponent);
+
+        int x = getBiggestByEdgeComponentNumber(mask, edgeToComponent);
+        objectives[0] = getFitnessOfComponent(mask, edgeToComponent, x);
+
+        // 2objectives[0] = x;
+        // int[] sizes = getComponentSize(edgeToComponent, (int) info[1]);
+        // System.out.println("vertices = " + sizes[0]);
+        // objectives[1] = sizes[0];
+        // objectives[2] = sizes[1];
 
         return objectives;
     }
@@ -143,17 +137,6 @@ public class Graph<V, S> implements Cloneable {
             }
         }
 
-        /*if (component == 0.0) {
-            int x = 0;
-            for (int i = 1; i <= componentsNumber; ++i) {
-                double newFitness = getFitnessOfComponent(mask, edgeToComponent, i);
-                if (fitness < newFitness) {
-                    fitness = newFitness;
-                    component = i;
-                }
-            }
-        }*/
-
         componentInfo[0] = fitness;
         componentInfo[1] = component;
 
@@ -185,10 +168,6 @@ public class Graph<V, S> implements Cloneable {
         return componentSize;
     }
 
-    public int getEdgesNumber() {
-        return edges.size();
-    }
-
     private List<Integer> findComponents() {
         List<Boolean> wholeGraphMask = new ArrayList<>(Collections.nCopies(edges.size(), true));
         return findComponents(wholeGraphMask);
@@ -217,6 +196,7 @@ public class Graph<V, S> implements Cloneable {
 
     // May be called only from 'findComponents(...)' function.
     private void dfs(int edgeNumber, int componentNumber, List<Boolean> mask, List<Integer> edgeToComponent) {
+        // todo get rid of double checking that is optimize operations
         edgeToComponent.set(edgeNumber, componentNumber);
 
         Edge<V> edge = edges.get(edgeNumber);
@@ -230,7 +210,7 @@ public class Graph<V, S> implements Cloneable {
             }
         }
 
-        V second = edge.first;
+        V second = edge.second;
         for (Map.Entry<V, S> entry : edgesAsMap.get(second).entrySet()) {
             V secondTo = entry.getKey();
             int indexOfEdge = edgesToIndex.get(second).get(secondTo);
@@ -271,60 +251,20 @@ public class Graph<V, S> implements Cloneable {
         return fitness;
     }
 
-    // todo down
-    // Get info about subgraph presented by mask:
-    public List<Pair<V, S>> getVerticesToSignalsByMask(List<Boolean> mask) {
-        Set<V> vertices = new HashSet<>();
+    public boolean isNewEdgeInConnectedComponent(List<Boolean> mask, int edgeNumber) {
+        Edge edge = edges.get(edgeNumber);
         for (int i = 0; i < mask.size(); ++i) {
             if (mask.get(i)) {
-                vertices.add(edges.get(i).first);
-                vertices.add(edges.get(i).second);
+                Edge edgeCompareTo = edges.get(i);
+                if (edge.first.equals(edgeCompareTo.first) || edge.first.equals(edgeCompareTo.second) ||
+                    edge.second.equals(edgeCompareTo.first) || edge.second.equals(edgeCompareTo.second)) {
+                    return true;
+                }
             }
         }
 
-        List<Pair<V, S>> result = new ArrayList<>(vertices.size());
-        Iterator<V> it = vertices.iterator();
-        while (it.hasNext()) {
-            V vertex = it.next();
-            result.add(new Pair<>(vertex, verticesToSignals.get(vertex)));
-        }
-
-        return result;
+        return false;
     }
-
-    public List<Pair<Edge<V>, S>> getEdgesToSignalsByMask(List<Boolean> mask) {
-        List<Pair<Edge<V>, S>> result = new ArrayList<>();
-
-        for (int i = 0; i < mask.size(); ++i) {
-            if (mask.get(i)) {
-                Edge e = edges.get(i);
-                result.add(new Pair(e, edgesAsMap.get(e.first).get(e.second)));
-            }
-        }
-
-        return result;
-    }
-
-    public List<Pair<S, Double>> getSignalsToValuesByMask(List<Boolean> mask) {
-        Set<S> maskSignals = new HashSet<>();
-        for (int i = 0; i < mask.size(); ++i) {
-            if (mask.get(i)) {
-                maskSignals.add(verticesToSignals.get(edges.get(i).first));
-                maskSignals.add(verticesToSignals.get(edges.get(i).second));
-                maskSignals.add(edgesAsMap.get(edges.get(i).first).get(edges.get(i).second));
-            }
-        }
-
-        List<Pair<S, Double>> result = new ArrayList<>(maskSignals.size());
-        Iterator<S> it = maskSignals.iterator();
-        while (it.hasNext()) {
-            S signal = it.next();
-            result.add(new Pair<>(signal, signals.get(signal)));
-        }
-
-        return result;
-    }
-    // todo up
 
     // Returns mask with edges only in first 'p' largest connected components.
     private List<Boolean> updateMask(List<Boolean> mask, int p) {
@@ -359,10 +299,9 @@ public class Graph<V, S> implements Cloneable {
         }
 
         for (int i = 0; i < edges.size(); ++i) {
-            int componentNumber = edgeToComponentInWholeGraph.get(edgesToIndex.get(edges.get(i).first).get(edges.get(i).second));
+            int componentNumber = edgeToComponentInWholeGraph.get(i);
             components.get(componentNumber - 1).size++;
         }
-
         Collections.sort(components);
 
         int[] orderToNumber = new int[componentsNumberInWholeGraph];
@@ -390,6 +329,43 @@ public class Graph<V, S> implements Cloneable {
             }
             return 0;
         }
+    }
+
+    /**
+     * FOR PRINTING OUTPUT
+     */
+
+    // Get info about subgraph presented by mask:
+    public List<Pair<V, S>> getVerticesToSignalsByMask(List<Boolean> mask) {
+        Set<V> vertices = new HashSet<>();
+        for (int i = 0; i < mask.size(); ++i) {
+            if (mask.get(i)) {
+                vertices.add(edges.get(i).first);
+                vertices.add(edges.get(i).second);
+            }
+        }
+
+        List<Pair<V, S>> result = new ArrayList<>(vertices.size());
+        Iterator<V> it = vertices.iterator();
+        while (it.hasNext()) {
+            V vertex = it.next();
+            result.add(new Pair<>(vertex, verticesToSignals.get(vertex)));
+        }
+
+        return result;
+    }
+
+    public List<Pair<Edge<V>, S>> getEdgesToSignalsByMask(List<Boolean> mask) {
+        List<Pair<Edge<V>, S>> result = new ArrayList<>();
+
+        for (int i = 0; i < mask.size(); ++i) {
+            if (mask.get(i)) {
+                Edge e = edges.get(i);
+                result.add(new Pair(e, edgesAsMap.get(e.first).get(e.second)));
+            }
+        }
+
+        return result;
     }
 
 }

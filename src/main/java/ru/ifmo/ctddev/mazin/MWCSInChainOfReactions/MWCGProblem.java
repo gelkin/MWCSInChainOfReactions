@@ -20,11 +20,6 @@ import java.util.HashMap;
 public class MWCGProblem extends Problem implements SimpleProblemForm {
     private static Graph graph;
 
-    @Override
-    public void setup(final EvolutionState state, final Parameter base) {
-        // todo
-    }
-
     private static boolean isGraphSet = false;
     public static void setGraph(Graph graph) {
         if (!isGraphSet) {
@@ -55,16 +50,16 @@ public class MWCGProblem extends Problem implements SimpleProblemForm {
         }
 
 
-        /* Multi
+        // Multi
         if (!(ind2.fitness instanceof MultiObjectiveFitness)) {
             state.output.fatal("Whoa!  It's not a MultiObjectiveFitness!!!", null);
         }
 
-        double[] objectives = graph.fitness(ind2AsList, 0);
+        double[] objectives = graph.fitness(ind2AsList, 1);
         ((MultiObjectiveFitness) ind2.fitness).setObjectives(state, objectives);
-        */
 
 
+        /*
         if (!(ind2.fitness instanceof SimpleFitness)) {
             state.output.fatal("Whoa!  It's not a SimpleFitness!!!", null);
         }
@@ -72,6 +67,7 @@ public class MWCGProblem extends Problem implements SimpleProblemForm {
         ((SimpleFitness)ind2.fitness).setFitness(state,
                                                  graph.fitness(ind2AsList, 0),
                                                  false);
+                                                 */
 
         ind2.evaluated = true;
     }

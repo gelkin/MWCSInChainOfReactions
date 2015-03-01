@@ -17,7 +17,7 @@ stat		= ec.simple.SimpleStatistics
 stat.file	= $./src/main/resources/mwcs-single.stat
 
 stat.do-generation = false
-#stat.do-message = false
+stat.do-message = false
 #stat.do-per-generation-description = true
 
 
