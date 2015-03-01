@@ -61,7 +61,7 @@ public class Graph<V, S> implements Cloneable {
     }
 
     // returns array with values [fitness(), edgesOfComponent, verticesOfComponent]
-    private static final int NUM_OBJECTIVES = 2;
+    private static final int NUM_OBJECTIVES = 1;
     private double[] multiObjectiveFitness(List<Boolean> mask,
                                            List<Integer> edgeToComponent) {
         double[] objectives = new double[NUM_OBJECTIVES];
@@ -71,11 +71,11 @@ public class Graph<V, S> implements Cloneable {
         int x = getBiggestByEdgeComponentNumber(mask, edgeToComponent);
         objectives[0] = getFitnessOfComponent(mask, edgeToComponent, x);
 
-        // 2objectives[0] = x;
+        // objectives[0] = info[0];
         // int[] sizes = getComponentSize(edgeToComponent, (int) info[1]);
         // System.out.println("vertices = " + sizes[0]);
         // objectives[1] = sizes[0];
-        // objectives[2] = sizes[1];
+        // objectives[1] = sizes[1];
 
         return objectives;
     }

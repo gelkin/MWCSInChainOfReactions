@@ -12,10 +12,10 @@ exch		= ec.simple.SimpleExchanger
 
 # Multi-objective: <simple objective> and number of edges and vertices of heaviest component.
 pop.subpop.0.species.fitness = ec.multiobjective.MultiObjectiveFitness
-pop.subpop.0.species.fitness.num-objectives = 2
+pop.subpop.0.species.fitness.num-objectives = 1
 
 pop.subpop.0.species.fitness.maximize.0 = true
-pop.subpop.0.species.fitness.maximize.1 = true
+#####pop.subpop.0.species.fitness.maximize.1 = true
 #####pop.subpop.0.species.fitness.maximize.2 = true
 
 # Statistics
@@ -23,10 +23,10 @@ stat = ec.multiobjective.MultiObjectiveStatistics
 stat.front = $./src/main/resources/front.stat
 stat.file		= $./src/main/resources/mwcs-multi.stat
 
-stat.do-generation = false
+##stat.do-generation = false
 ##stat.do-message = false
 
-generations = 2000
+generations = 4000
 
 quit-on-run-complete	= true
 checkpoint		    = false

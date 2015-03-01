@@ -2,6 +2,8 @@ package ru.ifmo.ctddev.mazin.MWCSInChainOfReactions;
 
 import java.io.*;
 import java.util.*;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 public class Solver {
     private static final String FILE_PARAM = "-file";
@@ -10,6 +12,9 @@ public class Solver {
     private static final String STAT_SUFFIX = ".stat";
     private static final String VERTICES_OUTFILE_NAME = "./src/main/resources/nodes.tsv";
     private static final String EDGES_OUTFILE_NAME = "./src/main/resources/edges.tsv";
+    private static final String NUMBER_TO_FITNESS_CSV = "./src/main/resources/number_to_fitness.csv";
+
+    private String statFile;
 
     private Graph graph;
 
@@ -53,16 +58,17 @@ public class Solver {
 
         EvolveHelper.mainHelper(newArgs);
 
-        // Let's return result subgraph in readable form
-
+        // #1 return result subgraph in readable form
         String[] parts = parametersFile.split("\\.");
-        String statFile = parts[0] + STAT_SUFFIX;
+        statFile = parts[0] + STAT_SUFFIX;
         List<Boolean> bestIndividual = getBestIndividual(statFile);
 
         int heaviestComponentNumber = (int) graph.getHeaviestComponentInfo(bestIndividual)[1];
         List<Boolean> heaviestComponent = graph.getComponentByNumber(bestIndividual, heaviestComponentNumber);
         writeResults(heaviestComponent);
 
+        // #2 (stat by first objective)
+        getAllIterationsStat();
     }
 
     private Graph initGraphFromFiles(String verticesFile, String edgesFile, String signalsFile) {
@@ -244,5 +250,35 @@ public class Solver {
         } catch (IOException e) {
             e.printStackTrace();
         }
+    }
+
+    Pattern MY_PATTERN = Pattern.compile("(\\[)(.*?)((\\])|( ))");
+
+    public void getAllIterationsStat() {
+        PrintWriter out = null;
+        try {
+            BufferedReader br = new BufferedReader(new FileReader(statFile));
+            out = new PrintWriter(new File(NUMBER_TO_FITNESS_CSV));
+
+            String line;
+            int counter = 1;
+            while ((line = br.readLine()) != null) {
+                Matcher m = MY_PATTERN.matcher(line);
+                while (m.find()) {
+                    String s = m.group(2);
+                    double d = Double.parseDouble(s);
+                    int i = (int) d;
+                    out.println(counter + "," + i);
+                    ++counter;
+                }
+            }
+
+        } catch (IOException e) {
+            System.out.println("Error occurred while reading from file " + statFile + ".");
+            e.printStackTrace();
+        } finally {
+            out.close();
+        }
+
     }
 }
