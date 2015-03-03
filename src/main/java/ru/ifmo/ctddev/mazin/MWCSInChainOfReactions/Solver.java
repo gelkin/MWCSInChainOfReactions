@@ -14,7 +14,8 @@ public class Solver {
     private static final String EDGES_OUTFILE_NAME = "./src/main/resources/edges.tsv";
     private static final String NUMBER_TO_FITNESS_CSV = "./src/main/resources/number_to_fitness.csv";
 
-    private String statFile;
+    private String parametersFile = "./src/main/resources/mwcs-multi.params";
+    private String statFile = "./src/main/resources/mwcs-multi.stat";;
 
     private Graph graph;
 
@@ -23,7 +24,7 @@ public class Solver {
     }
 
     private void run(String[] args) {
-        if (args.length < 4) {
+        if (args.length < 3) {
             System.out.println("Too few arguments");
             return;
         }
@@ -31,7 +32,6 @@ public class Solver {
         String verticesFile = args[0];
         String edgesFile = args[1];
         String signalsFile = args[2];
-        String parametersFile = args[3];
 
         graph = initGraphFromFiles(verticesFile, edgesFile, signalsFile);
         MWCGProblem.setGraph(graph);
@@ -59,8 +59,6 @@ public class Solver {
         EvolveHelper.mainHelper(newArgs);
 
         // #1 return result subgraph in readable form
-        String[] parts = parametersFile.split("\\.");
-        statFile = parts[0] + STAT_SUFFIX;
         List<Boolean> bestIndividual = getBestIndividual(statFile);
 
         int heaviestComponentNumber = (int) graph.getHeaviestComponentInfo(bestIndividual)[1];
@@ -220,13 +218,14 @@ public class Solver {
 
     private void writeResults(List<Boolean> mask) {
         // vertices
-        List<Pair<String, String>> verticesToSignals = graph.getVerticesToSignalsByMask(mask);
+        Map<String, String> verticesToSignals = graph.getVerticesToSignalsWithNaN(mask);
         try (FileOutputStream fos = new FileOutputStream(VERTICES_OUTFILE_NAME)) {
             BufferedWriter bw = new BufferedWriter(new OutputStreamWriter(fos));
 
-            for (int i = 0; i < verticesToSignals.size(); i++) {
-                Pair<String, String> vertex = verticesToSignals.get(i);
-                bw.write(vertex.first + "\t" + vertex.second + "\t" + "Node " + i);
+            bw.write("#label" + "\t" + "score1");
+            bw.newLine();
+            for (Map.Entry<String, String> entry : verticesToSignals.entrySet()) {
+                bw.write(entry.getKey() + "\t" + entry.getValue());
                 bw.newLine();
             }
 
@@ -236,13 +235,15 @@ public class Solver {
         }
 
         // edges
-        List<Pair<Edge<String>, String>> edgesToSignals = graph.getEdgesToSignalsByMask(mask);
+        List<Pair<Edge<String>, String>> edgesToSignals = graph.getEdgesToSignalsWithNaN(mask);
         try (FileOutputStream fos = new FileOutputStream(EDGES_OUTFILE_NAME)) {
             BufferedWriter bw = new BufferedWriter(new OutputStreamWriter(fos));
 
+            bw.write("#nodeA" + "\t" + "nodeB" + "\t" + "score1");
+            bw.newLine();
             for (int i = 0; i < edgesToSignals.size(); i++) {
                 Pair<Edge<String>, String> edge = edgesToSignals.get(i);
-                bw.write(i + "\t" + edge.first.first + "\t" + edge.first.second + "\t" + edge.second + "\t" + "Edge " + i);
+                bw.write(edge.first.first + "\t" + edge.first.second + "\t" + edge.second);
                 bw.newLine();
             }
 
@@ -252,8 +253,7 @@ public class Solver {
         }
     }
 
-    Pattern MY_PATTERN = Pattern.compile("(\\[)(.*?)((\\])|( ))");
-
+    private static Pattern MY_PATTERN = Pattern.compile("(\\[)(.*?)((\\])|( ))");
     public void getAllIterationsStat() {
         PrintWriter out = null;
         try {

@@ -95,6 +95,10 @@ public class Graph<V, S> implements Cloneable {
         return componentMask;
     }
 
+    public int getBiggestByEdgeComponentNumber(List<Boolean> mask) {
+        return getBiggestByEdgeComponentNumber(mask, findComponents(mask));
+    }
+
     private int getBiggestByEdgeComponentNumber(List<Boolean> mask,
                                                 List<Integer> edgeToComponent) {
         int[] compToEdgesNumber = new int[edges.size()];
@@ -253,7 +257,7 @@ public class Graph<V, S> implements Cloneable {
 
     public boolean isNewEdgeInConnectedComponent(List<Boolean> mask, int edgeNumber) {
         Edge edge = edges.get(edgeNumber);
-        for (int i = 0; i < mask.size(); ++i) {
+        for (int i = 0; i < edgeNumber; ++i) {
             if (mask.get(i)) {
                 Edge edgeCompareTo = edges.get(i);
                 if (edge.first.equals(edgeCompareTo.first) || edge.first.equals(edgeCompareTo.second) ||
@@ -355,6 +359,30 @@ public class Graph<V, S> implements Cloneable {
         return result;
     }
 
+    // Get info about subgraph presented by mask:
+    public Map<V, S> getVerticesToSignalsWithNaN(List<Boolean> mask) {
+        Map<V, S> verticesToSignalsWithNaN = new LinkedHashMap<>(verticesToSignals.size());
+        for (Map.Entry<V, S> entry : verticesToSignals.entrySet()) {
+            verticesToSignalsWithNaN.put(entry.getKey(), (S) "NaN");
+        }
+
+        Set<V> vertices = new HashSet<>();
+        for (int i = 0; i < mask.size(); ++i) {
+            if (mask.get(i)) {
+                vertices.add(edges.get(i).first);
+                vertices.add(edges.get(i).second);
+            }
+        }
+
+        Iterator<V> it = vertices.iterator();
+        while (it.hasNext()) {
+            V vertex = it.next();
+            verticesToSignalsWithNaN.put(vertex, verticesToSignals.get(vertex));
+        }
+
+        return verticesToSignalsWithNaN;
+    }
+
     public List<Pair<Edge<V>, S>> getEdgesToSignalsByMask(List<Boolean> mask) {
         List<Pair<Edge<V>, S>> result = new ArrayList<>();
 
@@ -362,6 +390,21 @@ public class Graph<V, S> implements Cloneable {
             if (mask.get(i)) {
                 Edge e = edges.get(i);
                 result.add(new Pair(e, edgesAsMap.get(e.first).get(e.second)));
+            }
+        }
+
+        return result;
+    }
+
+    public List<Pair<Edge<V>, S>> getEdgesToSignalsWithNaN(List<Boolean> mask) {
+        List<Pair<Edge<V>, S>> result = new ArrayList<>();
+
+        for (int i = 0; i < mask.size(); ++i) {
+            Edge e = edges.get(i);
+            if (mask.get(i)) {
+                result.add(new Pair(e, edgesAsMap.get(e.first).get(e.second)));
+            } else {
+                result.add(new Pair(e, (S) "NaN"));
             }
         }
 

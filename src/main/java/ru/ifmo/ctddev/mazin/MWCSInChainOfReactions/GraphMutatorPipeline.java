@@ -89,7 +89,7 @@ public class GraphMutatorPipeline extends BreedingPipeline {
             }
 
             for(int x = 0; x < i.genome.length; ++x) {
-                if (state.random[thread].nextBoolean(species.mutationProbability(x))) {
+                /*if (state.random[thread].nextBoolean(species.mutationProbability(x))) {
 
                     if (!i.genome[x]) {
                         if (graph.isNewEdgeInConnectedComponent(indAsList, x)) {
@@ -98,6 +98,10 @@ public class GraphMutatorPipeline extends BreedingPipeline {
                     } else {
                         i.genome[x] = false;
                     }
+                }*/
+                // Ordinary mutation
+                if (state.random[thread].nextBoolean(species.mutationProbability(x))) {
+                    i.genome[x] = !i.genome[x];
                 }
             }
             // it's a "new" individual, so it's no longer been evaluated

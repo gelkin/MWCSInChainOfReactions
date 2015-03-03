@@ -9,8 +9,8 @@ import java.util.*;
 
 
 public class MakeSignals {
-    private static final String VERTICES_FILE = "./src/main/resources/old_resources/old_nodes.txt";
-    private static final String EDGES_FILE = "./src/main/resources/old_resources/old_edges.txt";
+    private static final String VERTICES_FILE = "./src/main/resources/old_resources/nodes_ver2.txt";
+    private static final String EDGES_FILE = "./src/main/resources/old_resources/edges_ver2.txt";
 
     public static final String NODES_PATH = "./src/main/resources/nodes.txt";
     public static final String EDGES_PATH = "./src/main/resources/edges.txt";
