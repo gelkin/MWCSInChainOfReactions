@@ -60,22 +60,26 @@ public class Graph<V, S> implements Cloneable {
         return multiObjectiveFitness(mask, edgeToComponent);
     }
 
-    // returns array with values [fitness(), edgesOfComponent, verticesOfComponent]
-    private static final int NUM_OBJECTIVES = 1;
+    private static final int NUM_OBJECTIVES = 2;
     private double[] multiObjectiveFitness(List<Boolean> mask,
                                            List<Integer> edgeToComponent) {
         double[] objectives = new double[NUM_OBJECTIVES];
 
+        // #1
+        // int x = getBiggestByEdgeComponentNumber(mask, edgeToComponent);
+        // objectives[0] = getFitnessOfComponent(mask, edgeToComponent, x);
+
+        // #2
         // double[] info = getHeaviestComponentInfo(mask, edgeToComponent);
-
-        int x = getBiggestByEdgeComponentNumber(mask, edgeToComponent);
-        objectives[0] = getFitnessOfComponent(mask, edgeToComponent, x);
-
         // objectives[0] = info[0];
         // int[] sizes = getComponentSize(edgeToComponent, (int) info[1]);
         // System.out.println("vertices = " + sizes[0]);
         // objectives[1] = sizes[0];
-        // objectives[1] = sizes[1];
+        // objectives[2] = sizes[1];
+
+        // #3 in whole graph
+        objectives[0] = componentsNumber;
+        objectives[1] = getFitnessOfComponent(mask, edgeToComponent, 0);
 
         return objectives;
     }
@@ -172,6 +176,24 @@ public class Graph<V, S> implements Cloneable {
         return componentSize;
     }
 
+    public List<Integer> safeFindComponents(boolean[] mask){
+        List<Boolean> maskAsList = toList(mask);
+
+        int tmp = componentsNumber;
+        List<Integer> edgeToComponent = findComponents(maskAsList);
+        componentsNumber = tmp;
+
+        return edgeToComponent;
+    }
+
+    private List<Boolean> toList(boolean[] mask) {
+        List<Boolean> maskAsList = new ArrayList(mask.length);
+        for (int k = 0; k < mask.length; ++k) {
+            maskAsList.add(mask[k]);
+        }
+        return maskAsList;
+    }
+
     private List<Integer> findComponents() {
         List<Boolean> wholeGraphMask = new ArrayList<>(Collections.nCopies(edges.size(), true));
         return findComponents(wholeGraphMask);
@@ -225,11 +247,12 @@ public class Graph<V, S> implements Cloneable {
         }
     }
 
+    // if (component == 0) return fitness of whole subgraph
     private double getFitnessOfComponent(List<Boolean> mask, List<Integer> edgeToComponent, int component) {
         double fitness = 0.0;
         Set<S> uniqueSignals = new HashSet<>();
         for (int i = 0; i < edges.size(); ++i) {
-            if (mask.get(i) && edgeToComponent.get(i) == component) {
+            if (mask.get(i) && ((component == 0) || edgeToComponent.get(i) == component)) {
                 Edge<V> edge = edges.get(i);
                 uniqueSignals.add(edgesAsMap.get(edge.first).get(edge.second));
 
@@ -255,19 +278,30 @@ public class Graph<V, S> implements Cloneable {
         return fitness;
     }
 
-    public boolean isNewEdgeInConnectedComponent(List<Boolean> mask, int edgeNumber) {
-        Edge edge = edges.get(edgeNumber);
-        for (int i = 0; i < edgeNumber; ++i) {
-            if (mask.get(i)) {
-                Edge edgeCompareTo = edges.get(i);
-                if (edge.first.equals(edgeCompareTo.first) || edge.first.equals(edgeCompareTo.second) ||
-                    edge.second.equals(edgeCompareTo.first) || edge.second.equals(edgeCompareTo.second)) {
-                    return true;
-                }
+    public boolean isNewEdgeInConnectedComponent(boolean[] mask, int edgeNumber) {
+        List<Boolean> maskAsList = toList(mask);
+
+        Edge<V> edge = edges.get(edgeNumber);
+
+        V first = edge.first;
+        for (Map.Entry<V, S> entry : edgesAsMap.get(first).entrySet()) {
+            V firstTo = entry.getKey();
+            int indexOfEdge = edgesToIndex.get(first).get(firstTo);
+            if (maskAsList.get(indexOfEdge)){
+                return false;
             }
         }
 
-        return false;
+        V second = edge.second;
+        for (Map.Entry<V, S> entry : edgesAsMap.get(second).entrySet()) {
+            V secondTo = entry.getKey();
+            int indexOfEdge = edgesToIndex.get(second).get(secondTo);
+            if (maskAsList.get(indexOfEdge)) {
+                return false;
+            }
+        }
+
+        return true;
     }
 
     // Returns mask with edges only in first 'p' largest connected components.

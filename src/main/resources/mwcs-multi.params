@@ -12,10 +12,10 @@ exch		= ec.simple.SimpleExchanger
 
 # Multi-objective: <simple objective> and number of edges and vertices of heaviest component.
 pop.subpop.0.species.fitness = ec.multiobjective.MultiObjectiveFitness
-pop.subpop.0.species.fitness.num-objectives = 1
+pop.subpop.0.species.fitness.num-objectives = 2
 
-pop.subpop.0.species.fitness.maximize.0 = true
-#####pop.subpop.0.species.fitness.maximize.1 = true
+pop.subpop.0.species.fitness.maximize.0 = false
+pop.subpop.0.species.fitness.maximize.1 = true
 #####pop.subpop.0.species.fitness.maximize.2 = true
 
 # Statistics
@@ -26,7 +26,7 @@ stat.file		= $./src/main/resources/mwcs-multi.stat
 ##stat.do-generation = false
 ##stat.do-message = false
 
-generations = 4000
+generations = 1000
 
 quit-on-run-complete	= true
 checkpoint		    = false
@@ -41,16 +41,18 @@ pop.subpop.0.size = 50
 pop.subpop.0.duplicate-retries 	= 0
 
 pop.subpop.0.species		= ec.vector.BitVectorSpecies
-pop.subpop.0.species.ind	= ec.vector.BitVectorIndividual
+pop.subpop.0.species.ind	= ru.ifmo.ctddev.mazin.MWCSInChainOfReactions.GraphIndividual
 
 pop.subpop.0.species.genome-size	= genome-size-from-file
 
-pop.subpop.0.species.crossover-type	= any
+# ATTENTION! If GraphIndividual is specified, then 'one'-crossover means special
+# ATTENTION! graph-crossover (for confirmation, look through GraphIndividual class)
+pop.subpop.0.species.crossover-type	= one
 pop.subpop.0.species.mutation-type	= flip
+pop.subpop.0.species.mutation-prob	= 0.005
 
 # only for "any" crossover
-pop.subpop.0.species.crossover-prob	= 0.5
-pop.subpop.0.species.mutation-prob	= 0.005
+#####pop.subpop.0.species.crossover-prob	= 0.5
 
 # Use custom mutation class
 pop.subpop.0.species.pipe = ru.ifmo.ctddev.mazin.MWCSInChainOfReactions.GraphMutatorPipeline

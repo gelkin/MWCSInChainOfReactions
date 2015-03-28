@@ -36,6 +36,7 @@ public class Solver {
         graph = initGraphFromFiles(verticesFile, edgesFile, signalsFile);
         MWCGProblem.setGraph(graph);
         GraphMutatorPipeline.setGraph(graph);
+        GraphIndividual.setGraph(graph);
 
         int numberOfEdges;
         try {
@@ -60,7 +61,6 @@ public class Solver {
 
         // #1 return result subgraph in readable form
         List<Boolean> bestIndividual = getBestIndividual(statFile);
-
         int heaviestComponentNumber = (int) graph.getHeaviestComponentInfo(bestIndividual)[1];
         List<Boolean> heaviestComponent = graph.getComponentByNumber(bestIndividual, heaviestComponentNumber);
         writeResults(heaviestComponent);

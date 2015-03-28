@@ -55,7 +55,7 @@ public class MWCGProblem extends Problem implements SimpleProblemForm {
             state.output.fatal("Whoa!  It's not a MultiObjectiveFitness!!!", null);
         }
 
-        double[] objectives = graph.fitness(ind2AsList, 1);
+        double[] objectives = graph.fitness(ind2AsList, 0);
         ((MultiObjectiveFitness) ind2.fitness).setObjectives(state, objectives);
 
 

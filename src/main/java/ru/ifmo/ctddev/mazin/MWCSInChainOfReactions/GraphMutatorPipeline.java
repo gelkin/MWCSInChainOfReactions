@@ -83,26 +83,26 @@ public class GraphMutatorPipeline extends BreedingPipeline {
         for(int q = start; q < (n + start); ++q) {
             BitVectorIndividual i = (BitVectorIndividual)inds[q];
 
-            List<Boolean> indAsList = new ArrayList(i.genome.length);
-            for (int k = 0; k < i.genome.length; ++k) {
-                indAsList.add(i.genome[k]);
-            }
-
             for(int x = 0; x < i.genome.length; ++x) {
-                /*if (state.random[thread].nextBoolean(species.mutationProbability(x))) {
+                // #1 Add new edge which is not in any connected component with lower probability
 
-                    if (!i.genome[x]) {
-                        if (graph.isNewEdgeInConnectedComponent(indAsList, x)) {
-                            i.genome[x] = true;
-                        }
-                    } else {
-                        i.genome[x] = false;
+                if (!i.genome[x] && graph.isNewEdgeInConnectedComponent(i.genome, x)) {
+                    if (state.random[thread].nextBoolean(species.mutationProbability(x) * species.mutationProbability(x))) {
+                        i.genome[x] = true;
                     }
-                }*/
-                // Ordinary mutation
+                } else if (state.random[thread].nextBoolean(species.mutationProbability(x))) {
+                    i.genome[x] = !i.genome[x];
+                }
+
+
+                // #2 Ordinary mutation
+/*
+
                 if (state.random[thread].nextBoolean(species.mutationProbability(x))) {
                     i.genome[x] = !i.genome[x];
                 }
+*/
+
             }
             // it's a "new" individual, so it's no longer been evaluated
             i.evaluated = false;
