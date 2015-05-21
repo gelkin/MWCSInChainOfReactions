@@ -557,20 +557,11 @@ public class Graph<V extends Comparable<V>, S> implements Cloneable {
             reached.put(v, false);
         }
 
-        //todo
-        int counter = 0;
         Map.Entry<V, Double> minVertex;
         while ((minVertex = queue.poll()) != null) {
-            System.out.println(start + " !!! " + shortestPath.get(start));
-            System.out.println(minVertex.getKey() + " <-> " + minVertex.getValue());
-            if (minVertex.getValue() == -Double.MAX_VALUE) {
-                // todo
-                System.out.println("Met not connected part");
+             if (minVertex.getValue() == -Double.MAX_VALUE) {
                 break;
             }
-
-            // todo
-            System.out.println(minVertex.getKey());
 
             if (!reached.get(minVertex.getKey())) {
                 reached.put(minVertex.getKey(), true);
@@ -588,7 +579,7 @@ public class Graph<V extends Comparable<V>, S> implements Cloneable {
                         additionalPathWeight += signals.get(verticesToSignals.get(toEdge.getKey()));
                     }
 
-                    double newPathWeight = additionalPathWeight + shortestPath.get(minVertex.getKey());
+                    final double newPathWeight = additionalPathWeight + minVertex.getValue();
                     if (newPathWeight > shortestPath.get(toEdge.getKey())) {
                         shortestPath.put(toEdge.getKey(), newPathWeight);
                         // Add it again, as add_&&_poll is faster then 'remove()'
@@ -600,7 +591,7 @@ public class Graph<V extends Comparable<V>, S> implements Cloneable {
 
                             @Override
                             public Double getValue() {
-                                return signals.get(toEdge.getValue());
+                                return newPathWeight;
                             }
 
                             @Override
@@ -608,9 +599,8 @@ public class Graph<V extends Comparable<V>, S> implements Cloneable {
                                 return value;
                             }
                         });
+                        parent.put(toEdge.getKey(), minVertex.getKey());
                     }
-
-                    parent.put(minVertex.getKey(), toEdge.getKey());
                 }
             }
         }

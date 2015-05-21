@@ -199,7 +199,6 @@ public class GraphMutatorPipeline extends BreedingPipeline {
         List<Edge> pathEdges = new ArrayList<>();
         String parentVertex = maxVertex;
         while (!parentVertex.equals(start)) {
-            System.out.println("# " + parentVertex);
             pathEdges.add(new Edge(parent.get(parentVertex), parentVertex));
             parentVertex = parent.get(parentVertex);
         }
