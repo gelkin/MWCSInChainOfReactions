@@ -1,5 +1,6 @@
 package ru.ifmo.ctddev.mazin.MWCSInChainOfReactions;
 
+import com.sun.javafx.collections.MappingChange;
 import ec.BreedingPipeline;
 import ec.EvolutionState;
 import ec.Individual;
@@ -8,8 +9,7 @@ import ec.vector.BitVectorIndividual;
 import ec.vector.BitVectorSpecies;
 import ec.vector.VectorDefaults;
 
-import java.util.ArrayList;
-import java.util.List;
+import java.util.*;
 
 public class GraphMutatorPipeline extends BreedingPipeline {
     public static final String P_MYMUTATION = "my-mutation";
@@ -83,32 +83,133 @@ public class GraphMutatorPipeline extends BreedingPipeline {
         for(int q = start; q < (n + start); ++q) {
             BitVectorIndividual i = (BitVectorIndividual)inds[q];
 
+            // first part
+            // TODO connect all connected components with some possibility
+            // Let's connect two random connected component
+            List<Integer> edgesToComponents = graph.safeFindComponents(i.genome);
+            List<Integer> componentNumbers = getLeftComponentsNumbers(edgesToComponents);
+            if (componentNumbers.size() > 1) {
+                int firstComp = state.random[thread].nextInt(componentNumbers.size());
+                int secondComp;
+                if ((secondComp = state.random[thread].nextInt(componentNumbers.size() - 1)) >= firstComp) {
+                    ++secondComp; // so that secondComp != firstComp
+                }
+                List<String> firstVertices = graph.getComponentVertices(firstComp, edgesToComponents);
+                List<String> secondVertices = graph.getComponentVertices(secondComp, edgesToComponents);
+                // It doesn't matter which vertex to chose as start-vertex, because all vertices and edges
+                // inside one component are counted as zero-weight.
+                // So lets take zero vertex:
+                List<Integer> pathEdges = getPathEdges(firstVertices.get(0), secondVertices, i.genome);
+
+                // lets add new edges to individual
+                for (int j = 0; j < pathEdges.size(); ++j) {
+                    i.genome[pathEdges.get(j)] = true;
+                }
+            }
+
+            // second part
             for(int x = 0; x < i.genome.length; ++x) {
                 // #1 Add new edge which is not in any connected component with lower probability
+                if (!i.genome[x]) {
+                    double prob = species.mutationProbability(x);
+                    if (graph.isNewEdgeInConnectedComponent(i.genome, x)) {
+                        prob *= prob;
+                    }
 
-                if (!i.genome[x] && graph.isNewEdgeInConnectedComponent(i.genome, x)) {
-                    if (state.random[thread].nextBoolean(species.mutationProbability(x) * species.mutationProbability(x))) {
+                    if (state.random[thread].nextBoolean(prob)) {
                         i.genome[x] = true;
                     }
-                } else if (state.random[thread].nextBoolean(species.mutationProbability(x))) {
-                    i.genome[x] = !i.genome[x];
+                } else {
+                    if (state.random[thread].nextBoolean(species.mutationProbability(x))) {
+                        i.genome[x] = false;
+                    }
                 }
 
+                // #2 Connection && degree
+                /*
+                add private static final double DEGREE_COEF = 5.0; // TODO must be (< 1.0)
+                double edgeDegree = graph.getEdgeDegree(i.genome, x) / graph.getMaxDegree();
+                if (!i.genome[x]) {
+                    double prob = species.mutationProbability(x);
+                    if (graph.isNewEdgeInConnectedComponent(i.genome, x)) {
+                        prob *= prob;
+                    }
 
-                // #2 Ordinary mutation
-/*
+                    if (state.random[thread].nextBoolean(prob * (1.0 + DEGREE_COEF * edgeDegree))) {
+                        i.genome[x] = true;
+                    }
+                } else {
+                    if (state.random[thread].nextBoolean(species.mutationProbability(x))) {
+                        i.genome[x] = false;
+                    }
+                }*/
 
+                // #3 Ordinary mutation
+                /*
                 if (state.random[thread].nextBoolean(species.mutationProbability(x))) {
                     i.genome[x] = !i.genome[x];
                 }
-*/
+                */
 
             }
+
             // it's a "new" individual, so it's no longer been evaluated
             i.evaluated = false;
         }
 
         return n;
+    }
+
+    private List<Integer> getLeftComponentsNumbers(List<Integer> ind) {
+        Set<Integer> numbers = new HashSet<>();
+        for (int i = 0; i < ind.size(); ++i) {
+            if (ind.get(i) != 0) {
+                numbers.add(ind.get(i));
+            }
+        }
+
+        List<Integer> numbersAsList = new ArrayList<>(numbers.size());
+        numbersAsList.addAll(numbers);
+
+        return numbersAsList;
+    }
+
+    private List<Integer> getPathEdges(String start, List<String> secondComponent, boolean[] mask) {
+        List<Boolean> maskAsList = new ArrayList<>(mask.length);
+        for (int i = 0; i < mask.length; ++i) {
+            maskAsList.add(mask[i]);
+        }
+
+        Map<String, String> parent = new HashMap<>();
+        Map<String, Double> shortestPath = graph.dijkstra(start, graph.getCountedSignalAsMap(maskAsList), parent);
+
+        String maxVertex = start;
+        double maxValue = -Double.MAX_VALUE;
+        for (String v : secondComponent) {
+            if (shortestPath.get(v) > maxValue) {
+                maxValue = shortestPath.get(v);
+                maxVertex = v;
+            }
+        }
+        // components cannot be connected
+        if (maxVertex.equals(start)) {
+            return new ArrayList<>();
+        }
+
+        List<Edge> pathEdges = new ArrayList<>();
+        String parentVertex = maxVertex;
+        while (!parentVertex.equals(start)) {
+            System.out.println("# " + parentVertex);
+            pathEdges.add(new Edge(parent.get(parentVertex), parentVertex));
+            parentVertex = parent.get(parentVertex);
+        }
+
+        List<Integer> pathEdgesNumbers = new ArrayList<>();
+        for (Edge e : pathEdges) {
+            pathEdgesNumbers.add((Integer) ((Map) graph.edgesToIndex.get(e.first)).get(e.second));
+        }
+
+        return pathEdgesNumbers;
     }
 
 }

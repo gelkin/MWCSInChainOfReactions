@@ -2,6 +2,7 @@ package ru.ifmo.ctddev.mazin.MWCSInChainOfReactions;
 
 import java.io.*;
 import java.util.*;
+import java.util.List;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -9,13 +10,13 @@ public class Solver {
     private static final String FILE_PARAM = "-file";
     private static final String PARAM_IDENTIFIER = "-p";
     private static final String GENOME_SIZE_PARAM = "pop.subpop.0.species.genome-size=";
-    private static final String STAT_SUFFIX = ".stat";
     private static final String VERTICES_OUTFILE_NAME = "./src/main/resources/nodes.tsv";
     private static final String EDGES_OUTFILE_NAME = "./src/main/resources/edges.tsv";
     private static final String NUMBER_TO_FITNESS_CSV = "./src/main/resources/number_to_fitness.csv";
+    private String SOLUTION_COMPONENTS_FILE = "./src/main/resources/solution-components.stat";
 
     private String parametersFile = "./src/main/resources/mwcs-multi.params";
-    private String statFile = "./src/main/resources/mwcs-multi.stat";;
+    private String statFile = "./src/main/resources/mwcs-multi.stat";
 
     private Graph graph;
 
@@ -57,16 +58,59 @@ public class Solver {
         newArgs[2] = PARAM_IDENTIFIER;
         newArgs[3] = GENOME_SIZE_PARAM + numberOfEdges;
 
+        long startTime = System.currentTimeMillis();
+
         EvolveHelper.mainHelper(newArgs);
+
+        long afterTime = System.currentTimeMillis();
+
+        System.out.println("Time taken in millis: " + (afterTime - startTime));
 
         // #1 return result subgraph in readable form
         List<Boolean> bestIndividual = getBestIndividual(statFile);
-        int heaviestComponentNumber = (int) graph.getHeaviestComponentInfo(bestIndividual)[1];
-        List<Boolean> heaviestComponent = graph.getComponentByNumber(bestIndividual, heaviestComponentNumber);
-        writeResults(heaviestComponent);
+        writeResults(bestIndividual);
 
-        // #2 (stat by first objective)
-        getAllIterationsStat();
+        // TODO:
+        // int heaviestComponentNumber = (int) graph.getHeaviestComponentInfo(bestIndividual)[1];
+        // List<Boolean> heaviestComponent = graph.getComponentByNumber(bestIndividual, heaviestComponentNumber);
+        // writeResults(heaviestComponent);
+
+        // #2 write bestIndividual components to file
+        List<Integer> edgesToComponents = graph.safeFindComponents(bestIndividual);
+        writeConnectedComponents(edgesToComponents, bestIndividual);
+
+        // #3 (stat by first objective)
+        getNumberToFitnessStat();
+    }
+
+    private void writeConnectedComponents(List<Integer> edgesToComponents, List<Boolean> mask) {
+        Map<Integer, List<Integer>> components = new HashMap<>();
+        for (int i = 0; i < edgesToComponents.size(); ++i) {
+            if (edgesToComponents.get(i) != 0) {
+                int key = edgesToComponents.get(i);
+                if (!components.containsKey(key)) {
+                    components.put(key, new ArrayList<Integer>());
+                }
+                components.get(key).add(i);
+            }
+        }
+
+        try (FileOutputStream fos   = new FileOutputStream(SOLUTION_COMPONENTS_FILE);
+             BufferedWriter bw      = new BufferedWriter(new OutputStreamWriter(fos))) {
+
+            for (Map.Entry<Integer, List<Integer>> entry : components.entrySet()) {
+                int key = entry.getKey();
+                double fitness = graph.getFitnessOfComponent(mask, edgesToComponents, key);
+                List<Integer> edges = entry.getValue();
+                bw.write("Key: " + key + ". Fitness: " + fitness + ".\n");
+                for (int i = 0; i < edges.size(); ++i) {
+                    Edge<Integer> edge = (Edge) graph.edges.get(edges.get(i));
+                    bw.write(edge.first + " " + edge.second + "\n");
+                }
+            }
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
     }
 
     private Graph initGraphFromFiles(String verticesFile, String edgesFile, String signalsFile) {
@@ -194,13 +238,11 @@ public class Solver {
             while ((line = br.readLine()) != null) {
                 lastLine = line;
             }
-        } catch (FileNotFoundException e) {
-            e.printStackTrace();
         } catch (IOException e) {
             e.printStackTrace();
         }
 
-        if (lastLine != "") {
+        if (!"".equals(lastLine)) {
             List<Boolean> mask = new ArrayList<>(lastLine.length());
             for (int i = 0; i < lastLine.length(); ++i) {
                 if (lastLine.charAt(i) == '0') {
@@ -219,13 +261,13 @@ public class Solver {
     private void writeResults(List<Boolean> mask) {
         // vertices
         Map<String, String> verticesToSignals = graph.getVerticesToSignalsWithNaN(mask);
-        try (FileOutputStream fos = new FileOutputStream(VERTICES_OUTFILE_NAME)) {
-            BufferedWriter bw = new BufferedWriter(new OutputStreamWriter(fos));
+        try (FileOutputStream fos   = new FileOutputStream(VERTICES_OUTFILE_NAME);
+             BufferedWriter bw      = new BufferedWriter(new OutputStreamWriter(fos))) {
 
             bw.write("#label" + "\t" + "score1");
             bw.newLine();
             for (Map.Entry<String, String> entry : verticesToSignals.entrySet()) {
-                bw.write(entry.getKey() + "\t" + entry.getValue());
+                bw.write(entry.getKey() + "\t" + graph.signals.get(entry.getValue()));
                 bw.newLine();
             }
 
@@ -236,14 +278,14 @@ public class Solver {
 
         // edges
         List<Pair<Edge<String>, String>> edgesToSignals = graph.getEdgesToSignalsWithNaN(mask);
-        try (FileOutputStream fos = new FileOutputStream(EDGES_OUTFILE_NAME)) {
-            BufferedWriter bw = new BufferedWriter(new OutputStreamWriter(fos));
+        try (FileOutputStream fos   = new FileOutputStream(EDGES_OUTFILE_NAME);
+             BufferedWriter bw      = new BufferedWriter(new OutputStreamWriter(fos))) {
 
             bw.write("#nodeA" + "\t" + "nodeB" + "\t" + "score1");
             bw.newLine();
             for (int i = 0; i < edgesToSignals.size(); i++) {
                 Pair<Edge<String>, String> edge = edgesToSignals.get(i);
-                bw.write(edge.first.first + "\t" + edge.first.second + "\t" + edge.second);
+                bw.write(edge.first.first + "\t" + edge.first.second + "\t" + graph.signals.get(edge.second));
                 bw.newLine();
             }
 
@@ -254,11 +296,9 @@ public class Solver {
     }
 
     private static Pattern MY_PATTERN = Pattern.compile("(\\[)(.*?)((\\])|( ))");
-    public void getAllIterationsStat() {
-        PrintWriter out = null;
-        try {
-            BufferedReader br = new BufferedReader(new FileReader(statFile));
-            out = new PrintWriter(new File(NUMBER_TO_FITNESS_CSV));
+    public void getNumberToFitnessStat() {
+        try (BufferedReader br  = new BufferedReader(new FileReader(statFile));
+             PrintWriter out    = new PrintWriter(new File(NUMBER_TO_FITNESS_CSV))) {
 
             String line;
             int counter = 1;
@@ -276,8 +316,6 @@ public class Solver {
         } catch (IOException e) {
             System.out.println("Error occurred while reading from file " + statFile + ".");
             e.printStackTrace();
-        } finally {
-            out.close();
         }
 
     }

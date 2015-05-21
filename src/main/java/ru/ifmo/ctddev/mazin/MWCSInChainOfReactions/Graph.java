@@ -1,5 +1,8 @@
 package ru.ifmo.ctddev.mazin.MWCSInChainOfReactions;
 
+import com.sun.org.apache.xpath.internal.operations.Bool;
+
+import java.io.PrintWriter;
 import java.util.*;
 
 /**
@@ -7,17 +10,19 @@ import java.util.*;
  * @param <V> - vertex type
  * @param <S> - signal type
  */
-public class Graph<V, S> implements Cloneable {
+public class Graph<V extends Comparable<V>, S> implements Cloneable {
     private final LinkedHashMap<V, LinkedHashMap<V, S> > edgesAsMap;
-    private final LinkedHashMap<V, S> verticesToSignals;
-    private final Map<S, Double> signals;
-    private final List<Edge<V>> edges;
-    private final Map<V, Map<V, Integer>> edgesToIndex;
+    public final LinkedHashMap<V, S> verticesToSignals;
+    public final Map<S, Double> signals;
+    public final List<Edge<V>> edges;
+    public final Map<V, Map<V, Integer>> edgesToIndex;
     private final List<Integer> edgeToComponentInWholeGraph;
     private final int componentsNumberInWholeGraph;
     private int[] orderToNumberForComponents;
+    private Map<V, Integer> verticesToDegrees;
+    private double maxDegree;
 
-    private static final double SPECIAL_VERTEX_WEIGHT = -20.0;
+    private static final double SPECIAL_VERTEX_WEIGHT = -1.38033632932348;
 
     public Graph(LinkedHashMap<V, LinkedHashMap<V, S>> edgesAsMap,
                  LinkedHashMap<V, S> verticesToSignals,
@@ -34,6 +39,8 @@ public class Graph<V, S> implements Cloneable {
         edgeToComponentInWholeGraph = findComponents();
         componentsNumberInWholeGraph = componentsNumber;
         orderToNumberForComponents = orderToNumber();
+        initVerticesToDegrees();
+        maxDegree = (double) Collections.max(verticesToDegrees.values());
     }
 
     /*
@@ -179,8 +186,12 @@ public class Graph<V, S> implements Cloneable {
     public List<Integer> safeFindComponents(boolean[] mask){
         List<Boolean> maskAsList = toList(mask);
 
+        return safeFindComponents(maskAsList);
+    }
+
+    public List<Integer> safeFindComponents(List<Boolean> mask) {
         int tmp = componentsNumber;
-        List<Integer> edgeToComponent = findComponents(maskAsList);
+        List<Integer> edgeToComponent = findComponents(mask);
         componentsNumber = tmp;
 
         return edgeToComponent;
@@ -222,7 +233,6 @@ public class Graph<V, S> implements Cloneable {
 
     // May be called only from 'findComponents(...)' function.
     private void dfs(int edgeNumber, int componentNumber, List<Boolean> mask, List<Integer> edgeToComponent) {
-        // todo get rid of double checking that is optimize operations
         edgeToComponent.set(edgeNumber, componentNumber);
 
         Edge<V> edge = edges.get(edgeNumber);
@@ -248,7 +258,8 @@ public class Graph<V, S> implements Cloneable {
     }
 
     // if (component == 0) return fitness of whole subgraph
-    private double getFitnessOfComponent(List<Boolean> mask, List<Integer> edgeToComponent, int component) {
+    public double getFitnessOfComponent(List<Boolean> mask, List<Integer> edgeToComponent, int component) {
+
         double fitness = 0.0;
         Set<S> uniqueSignals = new HashSet<>();
         for (int i = 0; i < edges.size(); ++i) {
@@ -256,13 +267,19 @@ public class Graph<V, S> implements Cloneable {
                 Edge<V> edge = edges.get(i);
                 uniqueSignals.add(edgesAsMap.get(edge.first).get(edge.second));
 
-                if (signals.get(verticesToSignals.get(edge.first)) != SPECIAL_VERTEX_WEIGHT) {
+                // TODO additional condition: count once only positive weights
+                /*if (signals.get(verticesToSignals.get(edge.first)) < 0) {
+                    fitness += signals.get(verticesToSignals.get(edge.first));
+                } else*/ if (signals.get(verticesToSignals.get(edge.first)) != SPECIAL_VERTEX_WEIGHT) {
                     uniqueSignals.add(verticesToSignals.get(edge.first));
                 } else {
                     fitness += SPECIAL_VERTEX_WEIGHT;
                 }
 
-                if (signals.get(verticesToSignals.get(edge.second)) != SPECIAL_VERTEX_WEIGHT) {
+                // TODO additional condition: count once only positive weights
+                /*if (signals.get(verticesToSignals.get(edge.second)) < 0) {
+                    fitness += signals.get(verticesToSignals.get(edge.second));
+                } else*/ if (signals.get(verticesToSignals.get(edge.second)) != SPECIAL_VERTEX_WEIGHT) {
                     uniqueSignals.add(verticesToSignals.get(edge.second));
                 } else {
                     fitness += SPECIAL_VERTEX_WEIGHT;
@@ -304,6 +321,38 @@ public class Graph<V, S> implements Cloneable {
         return true;
     }
 
+    // Returns sum of 'x' vertices degrees, which are not in mask
+    public double getEdgeDegree(boolean[] mask, int x) {
+        Edge edge = edges.get(x);
+        int resDegree = 0;
+
+        boolean isVertexNeeded = true;
+        for (Map.Entry<V, S> entry : edgesAsMap.get(edge.first).entrySet()) {
+            if (mask[edgesToIndex.get(edge.first).get(entry.getKey())]) {
+                isVertexNeeded = false;
+                break; // edge.first is already in graph
+            }
+        }
+
+        if (isVertexNeeded) {
+            resDegree += verticesToDegrees.get(edge.first);
+        }
+
+        isVertexNeeded = true;
+        for (Map.Entry<V, S> entry : edgesAsMap.get(edge.second).entrySet()) {
+            if (mask[edgesToIndex.get(edge.second).get(entry.getKey())]) {
+                isVertexNeeded = false;
+                break; // edge.first is already in graph
+            }
+        }
+
+        if (isVertexNeeded) {
+            resDegree += verticesToDegrees.get(edge.second);
+        }
+
+        return ((double) resDegree);
+    }
+
     // Returns mask with edges only in first 'p' largest connected components.
     private List<Boolean> updateMask(List<Boolean> mask, int p) {
         if (p == 0) {
@@ -325,6 +374,33 @@ public class Graph<V, S> implements Cloneable {
         }
 
         return newMask;
+    }
+
+    // Returns map of <vertex> -> <degree>
+    private void initVerticesToDegrees() {
+        verticesToDegrees = new HashMap<>(verticesToSignals.size());
+        for (V vertex : verticesToSignals.keySet()) {
+            verticesToDegrees.put(vertex, edgesAsMap.get(vertex).size());
+        }
+    }
+
+    public double getMaxDegree() {
+        return maxDegree;
+    }
+
+    public List<V> getComponentVertices(int componentNumber, List<Integer> edgeToComponent) {
+        Set<V> vertices = new HashSet<>();
+        for (int i = 0; i < edges.size(); ++i) {
+            if (edgeToComponent.get(i) == componentNumber) {
+                Edge<V> edge = edges.get(i);
+                vertices.add(edge.first);
+                vertices.add(edge.second);
+            }
+        }
+
+        List<V> verticesAsList = new ArrayList<>(vertices.size());
+        verticesAsList.addAll(vertices);
+        return verticesAsList;
     }
 
     // Returns array of the form:
@@ -438,11 +514,126 @@ public class Graph<V, S> implements Cloneable {
             if (mask.get(i)) {
                 result.add(new Pair(e, edgesAsMap.get(e.first).get(e.second)));
             } else {
-                result.add(new Pair(e, (S) "NaN"));
+                result.add(new Pair(e, "NaN"));
             }
         }
 
         return result;
+    }
+
+    /**
+      Dijkstra
+      */
+
+    // Argument 'parent' is assigned and 'returned'
+    public Map<V, Double> dijkstra(V start, Map<S, Boolean> contextMap, Map<V, V> parent) {
+        Map<V, Double> shortestPath = new HashMap<>(verticesToSignals.keySet().size());
+        for (V vertex : verticesToSignals.keySet()) {
+            shortestPath.put(vertex, -Double.MAX_VALUE);
+        }
+        shortestPath.put(start, 0.0);
+
+        PriorityQueue<Map.Entry<V, Double>> queue = new PriorityQueue<>(new Comparator<Map.Entry<V, Double>>() {
+            @Override
+            public int compare(Map.Entry o1, Map.Entry o2) {
+                Double d1 = (Double) o1.getValue();
+                Double d2 = (Double) o2.getValue();
+                // big double -> come first
+                if (d1 < d2) {
+                    return 1;
+                } else if (d1 > d2) {
+                    return -1;
+                } else {
+                    return ((Comparable<V>) o1.getKey()).compareTo((V) o2.getKey());
+                }
+            }
+        });
+        for (Map.Entry<V, Double> entry : shortestPath.entrySet()) {
+            queue.add(entry);
+        }
+
+        Map<V, Boolean> reached = new HashMap<>(verticesToSignals.size());
+        for (V v : verticesToSignals.keySet()) {
+            reached.put(v, false);
+        }
+
+        //todo
+        int counter = 0;
+        Map.Entry<V, Double> minVertex;
+        while ((minVertex = queue.poll()) != null) {
+            System.out.println(start + " !!! " + shortestPath.get(start));
+            System.out.println(minVertex.getKey() + " <-> " + minVertex.getValue());
+            if (minVertex.getValue() == -Double.MAX_VALUE) {
+                // todo
+                System.out.println("Met not connected part");
+                break;
+            }
+
+            // todo
+            System.out.println(minVertex.getKey());
+
+            if (!reached.get(minVertex.getKey())) {
+                reached.put(minVertex.getKey(), true);
+
+                // TODO! pay attention to all relatives of vertex in order not to count some edge or edge twice
+                for (final Map.Entry<V, S> toEdge : edgesAsMap.get(minVertex.getKey()).entrySet()) {
+                    double additionalPathWeight = 0.0;
+                    S edgesSignal = edgesAsMap.get(minVertex.getKey()).get(toEdge.getKey());
+                    if (signals.get(edgesSignal) < 0.0 && !contextMap.get(edgesSignal)) {
+                        additionalPathWeight += signals.get(edgesSignal);
+                    }
+
+                    if (signals.get(verticesToSignals.get(toEdge.getKey())) < 0.0
+                            && !contextMap.get(verticesToSignals.get(toEdge.getKey()))) {
+                        additionalPathWeight += signals.get(verticesToSignals.get(toEdge.getKey()));
+                    }
+
+                    double newPathWeight = additionalPathWeight + shortestPath.get(minVertex.getKey());
+                    if (newPathWeight > shortestPath.get(toEdge.getKey())) {
+                        shortestPath.put(toEdge.getKey(), newPathWeight);
+                        // Add it again, as add_&&_poll is faster then 'remove()'
+                        queue.add(new Map.Entry<V, Double>() {
+                            @Override
+                            public V getKey() {
+                                return toEdge.getKey();
+                            }
+
+                            @Override
+                            public Double getValue() {
+                                return signals.get(toEdge.getValue());
+                            }
+
+                            @Override
+                            public Double setValue(Double value) {
+                                return value;
+                            }
+                        });
+                    }
+
+                    parent.put(minVertex.getKey(), toEdge.getKey());
+                }
+            }
+        }
+
+        return shortestPath;
+    }
+
+    public Map<S, Boolean> getCountedSignalAsMap(List<Boolean> mask) {
+        Map<S, Boolean> maskAsMap = new HashMap<>(signals.size());
+        for (S key : signals.keySet()) {
+            maskAsMap.put(key, false);
+        }
+
+        for (int i = 0; i < mask.size(); ++i) {
+            if (mask.get(i)) {
+                Edge edge = edges.get(i);
+                maskAsMap.put(edgesAsMap.get(edge.first).get(edge.second), true);
+                maskAsMap.put(verticesToSignals.get(edge.first), true);
+                maskAsMap.put(verticesToSignals.get(edge.second), true);
+            }
+        }
+
+        return maskAsMap;
     }
 
 }
