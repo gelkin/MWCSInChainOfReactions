@@ -1,17 +1,22 @@
-breedthreads = auto
-evalthreads = auto
+breedthreads = 1
+evalthreads = 1
+
+seed.0 = time
 
 state		= ec.simple.SimpleEvolutionState
 
 pop		    = ec.Population
 init		= ec.simple.SimpleInitializer
 finish		= ec.simple.SimpleFinisher
-breed		= ec.simple.SimpleBreeder
-eval		= ec.simple.SimpleEvaluator
+################breed		= ec.simple.SimpleBreeder
+breed = ec.multiobjective.nsga2.NSGA2Breeder
+################eval		= ec.simple.SimpleEvaluator
+eval = ec.multiobjective.nsga2.NSGA2Evaluator
 exch		= ec.simple.SimpleExchanger
 
-# Multi-objective: <simple objective> and number of edges and vertices of heaviest component.
-pop.subpop.0.species.fitness = ec.multiobjective.MultiObjectiveFitness
+# Multi-objecti22ve: <simple objective> and number of edges and vertices of heaviest component.
+pop.subpop.0.species.fitness = ec.multiobjective.nsga2.NSGA2MultiObjectiveFitness
+################pop.subpop.0.species.fitness = ec.multiobjective.MultiObjectiveFitness
 pop.subpop.0.species.fitness.num-objectives = 2
 
 pop.subpop.0.species.fitness.maximize.0 = false
@@ -26,7 +31,7 @@ stat.file  = $./src/main/resources/mwcs-multi.stat
 ##stat.do-generation = false
 ##stat.do-message = false
 
-generations = 1700
+generations = 100
 
 quit-on-run-complete	= true
 checkpoint		    = false
@@ -64,9 +69,9 @@ pop.subpop.0.species.pipe.source.0.source.1	= ec.select.TournamentSelection
 pop.subpop.0.species.pipe.source.0.source.0.size	= 2
 pop.subpop.0.species.pipe.source.0.source.1.size	= 2
 
-#pop.subpop.0.species.pipe.source.0.source.0 = ec.select.BestSelection
-#pop.subpop.0.species.pipe.source.0.source.1 = ec.select.BestSelection
-#select.best.n = 15
-#select.best.size = 4
+#####pop.subpop.0.species.pipe.source.0.source.0 = ec.select.BestSelection
+#####pop.subpop.0.species.pipe.source.0.source.1 = ec.select.BestSelection
+#####select.best.n = 15
+#####select.best.size = 4
 
 eval.problem            = ru.ifmo.ctddev.mazin.MWCSInChainOfReactions.MWCGProblem

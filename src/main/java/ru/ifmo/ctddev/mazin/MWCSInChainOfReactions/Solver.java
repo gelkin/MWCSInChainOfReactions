@@ -10,10 +10,11 @@ public class Solver {
     private static final String FILE_PARAM = "-file";
     private static final String PARAM_IDENTIFIER = "-p";
     private static final String GENOME_SIZE_PARAM = "pop.subpop.0.species.genome-size=";
-    private static final String VERTICES_OUTFILE_NAME = "./src/main/resources/nodes.tsv";
-    private static final String EDGES_OUTFILE_NAME = "./src/main/resources/edges.tsv";
+    private static final String VERTICES_OUTFILE_NAME = "./src/main/resources/result-nodes.txt";
+    private static final String EDGES_OUTFILE_NAME = "./src/main/resources/result-edges.txt";
     private static final String NUMBER_TO_FITNESS_CSV = "./src/main/resources/number_to_fitness.csv";
-    private String SOLUTION_COMPONENTS_FILE = "./src/main/resources/solution-components.stat";
+    private static final String RESULT_COMPONENTS_FILE = "./src/main/resources/result-components.stat";
+    private static final String TRUE_SOLUTION_EDGES_FILE = "./src/main/resources/true-solution-edges.txt";
 
     private String parametersFile = "./src/main/resources/mwcs-multi.params";
     private String statFile = "./src/main/resources/mwcs-multi.stat";
@@ -38,6 +39,14 @@ public class Solver {
         MWCGProblem.setGraph(graph);
         GraphMutatorPipeline.setGraph(graph);
         GraphIndividual.setGraph(graph);
+
+        // TODO
+        List<Boolean> initialPoplation = processSubgraph();
+        if (initialPoplation == null) {
+            System.err.println("foo with file " + TRUE_SOLUTION_EDGES_FILE);
+            return;
+        }
+        GraphMutatorPipeline.setInitialPopulation(initialPoplation);
 
         int numberOfEdges;
         try {
@@ -66,7 +75,7 @@ public class Solver {
 
         System.out.println("Time taken in millis: " + (afterTime - startTime));
 
-        // #1 return result subgraph in readable form
+        // #1 return result subgraph 2in readable form
         List<Boolean> bestIndividual = getBestIndividual(statFile);
         writeResults(bestIndividual);
 
@@ -76,11 +85,14 @@ public class Solver {
         // writeResults(heaviestComponent);
 
         // #2 write bestIndividual components to file
-        List<Integer> edgesToComponents = graph.safeFindComponents(bestIndividual);
+        List<Integer> edgesToComponents = (List) graph.findComponents(bestIndividual).first;
         writeConnectedComponents(edgesToComponents, bestIndividual);
 
         // #3 (stat by first objective)
         getNumberToFitnessStat();
+
+        // #4 process all stat, and return best connected (with 1.0 connected component)
+        processAllStat();
     }
 
     private void writeConnectedComponents(List<Integer> edgesToComponents, List<Boolean> mask) {
@@ -95,7 +107,7 @@ public class Solver {
             }
         }
 
-        try (FileOutputStream fos   = new FileOutputStream(SOLUTION_COMPONENTS_FILE);
+        try (FileOutputStream fos   = new FileOutputStream(RESULT_COMPONENTS_FILE);
              BufferedWriter bw      = new BufferedWriter(new OutputStreamWriter(fos))) {
 
             for (Map.Entry<Integer, List<Integer>> entry : components.entrySet()) {
@@ -295,7 +307,7 @@ public class Solver {
         }
     }
 
-    private static Pattern MY_PATTERN = Pattern.compile("(\\[)(.*?)((\\])|( ))");
+    private static Pattern NUMBER_TO_FITNESS_PATTERN = Pattern.compile("(\\[)(.*?)((\\])|( ))");
     public void getNumberToFitnessStat() {
         try (BufferedReader br  = new BufferedReader(new FileReader(statFile));
              PrintWriter out    = new PrintWriter(new File(NUMBER_TO_FITNESS_CSV))) {
@@ -303,7 +315,7 @@ public class Solver {
             String line;
             int counter = 1;
             while ((line = br.readLine()) != null) {
-                Matcher m = MY_PATTERN.matcher(line);
+                Matcher m = NUMBER_TO_FITNESS_PATTERN.matcher(line);
                 while (m.find()) {
                     String s = m.group(2);
                     double d = Double.parseDouble(s);
@@ -317,6 +329,90 @@ public class Solver {
             System.out.println("Error occurred while reading from file " + statFile + ".");
             e.printStackTrace();
         }
+    }
 
+    private static Pattern ALL_STAT_PATTERN = Pattern.compile("\\[(.*?) (.*?)\\]");
+    private void processAllStat() {
+        try (BufferedReader br  = new BufferedReader(new FileReader(statFile))) {
+            String line;
+            Pair<Double, String> maxWeightSubgraph = new Pair<>(-Double.MAX_VALUE, "");
+            while ((line = br.readLine()) != null) {
+                String[] parts = line.split(" ");
+                if ("Fitness:".equals(parts[0])) {
+                    Matcher m = ALL_STAT_PATTERN.matcher(line);
+                    while (m.find()) {
+                        String s = m.group(1);
+                        double numberOfComponents = Double.parseDouble(s);
+                        s = m.group(2);
+                        double weight = Double.parseDouble(s);
+                        if (numberOfComponents == 1.0) {
+                            if (weight > maxWeightSubgraph.first) {
+                                maxWeightSubgraph.first = weight;
+                                // supposed that next comes individual
+                                // todo
+                                br.readLine();
+                                br.readLine();
+                                maxWeightSubgraph.second = br.readLine();
+                            }
+                        }
+                        /*if (numberOfComponents == 2.0) {
+                            if (weight > maxWeightSubgraph.first) {
+                                maxWeightSubgraph.first = weight;
+                                // supposed that next comes individual
+                                // todo
+                                br.readLine();
+                                br.readLine();
+                                maxWeightSubgraph.second = br.readLine();
+                            }
+                        }*/
+                    }
+                }
+            }
+
+            List<Boolean> mask = new ArrayList<>(maxWeightSubgraph.second.length());
+            for (int i = 0; i < maxWeightSubgraph.second.length(); ++i) {
+                if ('0' == maxWeightSubgraph.second.charAt(i)) {
+                    mask.add(false);
+                } else {
+                    mask.add(true);
+                }
+            }
+
+            writeConnectedComponents((List) graph.findComponents(mask).first, mask);
+        } catch (IOException e) {
+            System.out.println("Error occurred while reading from file " + statFile + ".");
+            e.printStackTrace();
+        }
+    }
+
+    private List<Boolean> processSubgraph() {
+        try (BufferedReader br = new BufferedReader(new FileReader(TRUE_SOLUTION_EDGES_FILE))) {
+            List<Boolean> trueSolution = new ArrayList<>();
+            for (int i = 0; i < graph.edges.size(); ++i) {
+                trueSolution.add(false);
+            }
+            int counter = 0;
+            String line = br.readLine();
+            while (line != null) {
+                String[] edgeInfo = line.split("\\t");
+                String from = edgeInfo[0];
+                String to = edgeInfo[1];
+
+                if (!edgeInfo[2].equals("NaN")) {
+                    trueSolution.set((Integer) ((Map) (graph.edgesToIndex.get(from))).get(to), true);
+                    counter++;
+                }
+                line = br.readLine();
+            }
+            System.out.println("Fintess of 'true-solution': " + graph.fitness(trueSolution, 0)[1]);
+            System.out.println("counter =  " + counter);
+
+            return trueSolution;
+        } catch (IOException e) {
+            System.out.println("Error occurred while reading from file " + TRUE_SOLUTION_EDGES_FILE + ".");
+            e.printStackTrace();
+        }
+
+        return null;
     }
 }

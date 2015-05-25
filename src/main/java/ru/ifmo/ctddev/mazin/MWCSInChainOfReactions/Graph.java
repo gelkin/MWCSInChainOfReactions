@@ -36,8 +36,9 @@ public class Graph<V extends Comparable<V>, S> implements Cloneable {
         this.edges = edges;
         this.edgesToIndex = edgesToIndex;
 
-        edgeToComponentInWholeGraph = findComponents();
-        componentsNumberInWholeGraph = componentsNumber;
+        Pair<List<Integer>, Integer> componentsInfo = findComponents();
+        edgeToComponentInWholeGraph = componentsInfo.first;
+        componentsNumberInWholeGraph = componentsInfo.second;
         orderToNumberForComponents = orderToNumber();
         initVerticesToDegrees();
         maxDegree = (double) Collections.max(verticesToDegrees.values());
@@ -61,17 +62,16 @@ public class Graph<V extends Comparable<V>, S> implements Cloneable {
         }
 
         List<Boolean> mask = updateMask(originalMask, p);
-        List<Integer> edgeToComponent = findComponents(mask);
 
         // Multi:
-        return multiObjectiveFitness(mask, edgeToComponent);
+        return multiObjectiveFitness(mask);
     }
 
     private static final int NUM_OBJECTIVES = 2;
-    private double[] multiObjectiveFitness(List<Boolean> mask,
-                                           List<Integer> edgeToComponent) {
-        double[] objectives = new double[NUM_OBJECTIVES];
+    private double[] multiObjectiveFitness(List<Boolean> mask) {
+        Pair<List<Integer>, Integer> edgeToComponent = findComponents(mask);
 
+        double[] objectives = new double[NUM_OBJECTIVES];
         // #1
         // int x = getBiggestByEdgeComponentNumber(mask, edgeToComponent);
         // objectives[0] = getFitnessOfComponent(mask, edgeToComponent, x);
@@ -85,14 +85,14 @@ public class Graph<V extends Comparable<V>, S> implements Cloneable {
         // objectives[2] = sizes[1];
 
         // #3 in whole graph
-        objectives[0] = componentsNumber;
-        objectives[1] = getFitnessOfComponent(mask, edgeToComponent, 0);
+        objectives[0] = edgeToComponent.second;
+        objectives[1] = getFitnessOfComponent(mask, edgeToComponent.first, 0);
 
         return objectives;
     }
     
     public List<Boolean> getComponentByNumber(List<Boolean> mask, int component) {
-        List<Integer> edgeToComponent = findComponents(mask);
+        List<Integer> edgeToComponent = findComponents(mask).first;
 
         List<Boolean> componentMask = new ArrayList<>(mask.size());
         for (int i = 0; i < edges.size(); ++i) {
@@ -107,7 +107,7 @@ public class Graph<V extends Comparable<V>, S> implements Cloneable {
     }
 
     public int getBiggestByEdgeComponentNumber(List<Boolean> mask) {
-        return getBiggestByEdgeComponentNumber(mask, findComponents(mask));
+        return getBiggestByEdgeComponentNumber(mask, findComponents(mask).first);
     }
 
     private int getBiggestByEdgeComponentNumber(List<Boolean> mask,
@@ -133,13 +133,14 @@ public class Graph<V extends Comparable<V>, S> implements Cloneable {
 
     // returns: [heaviestComponentFitness, heaviestComponentNumber]
     public double[] getHeaviestComponentInfo(List<Boolean> mask) {
-        List<Integer> edgeToComponent = findComponents(mask);
-        return getHeaviestComponentInfo(mask, edgeToComponent);
+        Pair<List<Integer>, Integer> edgeToComponent = findComponents(mask);
+        return getHeaviestComponentInfo(mask, edgeToComponent.first, edgeToComponent.second);
     }
 
     // returns: [heaviestComponentFitness, heaviestComponentNumber]
     private double[] getHeaviestComponentInfo(List<Boolean> mask,
-                                              List<Integer> edgeToComponent) {
+                                              List<Integer> edgeToComponent,
+                                              int componentsNumber) {
         double[] componentInfo = new double[2];
 
         double fitness = Double.NEGATIVE_INFINITY;
@@ -183,18 +184,15 @@ public class Graph<V extends Comparable<V>, S> implements Cloneable {
         return componentSize;
     }
 
-    public List<Integer> safeFindComponents(boolean[] mask){
-        List<Boolean> maskAsList = toList(mask);
-
-        return safeFindComponents(maskAsList);
+    private Pair<List<Integer>, Integer> findComponents() {
+        List<Boolean> wholeGraphMask = new ArrayList<>(Collections.nCopies(edges.size(), true));
+        return findComponents(wholeGraphMask);
     }
 
-    public List<Integer> safeFindComponents(List<Boolean> mask) {
-        int tmp = componentsNumber;
-        List<Integer> edgeToComponent = findComponents(mask);
-        componentsNumber = tmp;
+    public Pair<List<Integer>, Integer> findComponents(boolean[] mask) {
+        List<Boolean> maskAsList = toList(mask);
 
-        return edgeToComponent;
+        return findComponents(maskAsList);
     }
 
     private List<Boolean> toList(boolean[] mask) {
@@ -205,28 +203,22 @@ public class Graph<V extends Comparable<V>, S> implements Cloneable {
         return maskAsList;
     }
 
-    private List<Integer> findComponents() {
-        List<Boolean> wholeGraphMask = new ArrayList<>(Collections.nCopies(edges.size(), true));
-        return findComponents(wholeGraphMask);
-    }
-
-    // Use this field carefully as it updates each time with calling 'findComponents(...)'.
-    private int componentsNumber;
-
     // return: list.get(i) = number_of_component , if edge #i match the 'mask'
     //                       0 , if edge #i doesn't match the 'mask'
-    private List<Integer> findComponents(List<Boolean> mask) {
-        List<Integer> edgeToComponent = new ArrayList<>(Collections.nCopies(edges.size(), 0));
+    public Pair<List<Integer>, Integer> findComponents(List<Boolean> mask) {
+        Pair<List<Integer>, Integer> edgeToComponent = new Pair<>(null, 0);
+        // edgeToComponent
+        edgeToComponent.first = new ArrayList<>(Collections.nCopies(edges.size(), 0));
 
         int componentNumber = 0;
         for (int i = 0; i < edges.size(); ++i) {
-            if (mask.get(i) && edgeToComponent.get(i) == 0) {
+            if (mask.get(i) && edgeToComponent.first.get(i) == 0) {
                 ++componentNumber;
-                dfs(i, componentNumber, mask, edgeToComponent);
+                dfs(i, componentNumber, mask, edgeToComponent.first);
             }
         }
         
-        componentsNumber = componentNumber;
+        edgeToComponent.second = componentNumber;
 
         return edgeToComponent;
     }

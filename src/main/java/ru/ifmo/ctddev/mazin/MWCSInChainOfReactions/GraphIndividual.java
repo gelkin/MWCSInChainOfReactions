@@ -45,8 +45,8 @@ public class GraphIndividual extends BitVectorIndividual {
                 }
 
                 // deal with components
-                List<Integer> componentsFirst = graph.safeFindComponents(genome);
-                List<Integer> componentsSecond = graph.safeFindComponents(i.genome);
+                List<Integer> componentsFirst = (List) graph.findComponents(genome).first;
+                List<Integer> componentsSecond = (List) graph.findComponents(i.genome).first;
 
                 // put genome and i.genome to be equal to intersect
                 System.arraycopy(intersect, 0, genome, 0, genome.length);

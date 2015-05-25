@@ -15,6 +15,13 @@ public class GraphMutatorPipeline extends BreedingPipeline {
     public static final String P_MYMUTATION = "my-mutation";
     private static Graph graph;
 
+    // todo
+    private static int counter = 0;
+    private static List<Boolean> initialPopulation;
+    public static void setInitialPopulation(List<Boolean> initialPopulation) {
+        GraphMutatorPipeline.initialPopulation = initialPopulation;
+    }
+
     private static boolean isGraphSet = false;
     public static void setGraph(Graph graph) {
         if (!isGraphSet) {
@@ -22,6 +29,8 @@ public class GraphMutatorPipeline extends BreedingPipeline {
             isGraphSet = true;
         }
     }
+
+
 
     // We have to specify a default base, even though we never use it
     public Parameter defaultBase() {
@@ -81,12 +90,22 @@ public class GraphMutatorPipeline extends BreedingPipeline {
 
         // mutate 'em!
         for(int q = start; q < (n + start); ++q) {
+            if (counter < 50) {
+                BitVectorIndividual i = (BitVectorIndividual)inds[q];
+                for (int j = 0; j < i.genome.length; ++j) {
+                    i.genome[j] = initialPopulation.get(j);
+                }
+
+                counter++;
+                continue;
+            }
+
             BitVectorIndividual i = (BitVectorIndividual)inds[q];
 
             // first part
             // TODO connect all connected components with some possibility
             // Let's connect two random connected component
-            List<Integer> edgesToComponents = graph.safeFindComponents(i.genome);
+            List<Integer> edgesToComponents = (List) graph.findComponents(i.genome).first;
             List<Integer> componentNumbers = getLeftComponentsNumbers(edgesToComponents);
             if (componentNumbers.size() > 1) {
                 int firstComp = state.random[thread].nextInt(componentNumbers.size());
