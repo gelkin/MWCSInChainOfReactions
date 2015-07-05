@@ -20,7 +20,6 @@ stat.do-generation = false
 stat.do-message = false
 #stat.do-per-generation-description = true
 
-
 generations = 1000
 
 quit-on-run-complete	= true

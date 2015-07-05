@@ -42,34 +42,19 @@ public class MWCGProblem extends Problem implements SimpleProblemForm {
             state.output.fatal("Whoa!  It's not a BitVectorIndividual!!!", null);
         }
 
-        BitVectorIndividual ind2 = (BitVectorIndividual) individual;
+        BitVectorIndividual ind = (BitVectorIndividual) individual;
 
-        List<Boolean> ind2AsList = new ArrayList(ind2.genome.length);
-        for (int i = 0; i < ind2.genome.length; ++i) {
-            ind2AsList.add(ind2.genome[i]);
-        }
-
+        List<Boolean> indAsList = graph.toList(ind.genome);
 
         // Multi
-        if (!(ind2.fitness instanceof MultiObjectiveFitness)) {
+        if (!(ind.fitness instanceof MultiObjectiveFitness)) {
             state.output.fatal("Whoa!  It's not a MultiObjectiveFitness!!!", null);
         }
 
-        double[] objectives = graph.fitness(ind2AsList, 0);
-        ((MultiObjectiveFitness) ind2.fitness).setObjectives(state, objectives);
+        double[] objectives = graph.fitness(indAsList, 0);
+        ((MultiObjectiveFitness) ind.fitness).setObjectives(state, objectives);
 
-
-        /*
-        if (!(ind2.fitness instanceof SimpleFitness)) {
-            state.output.fatal("Whoa!  It's not a SimpleFitness!!!", null);
-        }
-
-        ((SimpleFitness)ind2.fitness).setFitness(state,
-                                                 graph.fitness(ind2AsList, 0),
-                                                 false);
-                                                 */
-
-        ind2.evaluated = true;
+        ind.evaluated = true;
     }
 
 }

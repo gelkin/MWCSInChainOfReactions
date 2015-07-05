@@ -1,7 +1,5 @@
 package ru.ifmo.ctddev.mazin.MWCSInChainOfReactions;
 
-import java.util.Objects;
-
 public class Signal {
     private double value;
 

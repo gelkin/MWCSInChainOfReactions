@@ -1,14 +1,23 @@
+package ru.ifmo.ctddev.mazin.MWCSInChainOfReactions;
 /*
   Copyright 2006 by Sean Luke
   Licensed under the Academic Free License version 3.0
   See the file "LICENSE" for more information
 */
-package ru.ifmo.ctddev.mazin.MWCSInChainOfReactions;
+
 
 import ec.EvolutionState;
 import ec.util.*;
 import java.io.File;
 import java.io.PrintWriter;
+
+/*
+ * EvolveHelper.java
+ *
+ * It is a copy of Evolve.java class, but without exit() function at the end, so
+ * after finishing of running the EvolveHelper.mainHelper(...) execution continues.
+ */
+
 
 /* 
  * Evolve.java

@@ -1,8 +1,5 @@
 package ru.ifmo.ctddev.mazin.MWCSInChainOfReactions;
 
-import com.sun.org.apache.xpath.internal.operations.Bool;
-
-import java.io.PrintWriter;
 import java.util.*;
 
 /**
@@ -11,21 +8,21 @@ import java.util.*;
  * @param <S> - signal type
  */
 public class Graph<V extends Comparable<V>, S> implements Cloneable {
+    // LinkedHashMap (sic!)
     private final LinkedHashMap<V, LinkedHashMap<V, S> > edgesAsMap;
-    public final LinkedHashMap<V, S> verticesToSignals;
+
+    public final Map<V, S> verticesToSignals;
     public final Map<S, Double> signals;
     public final List<Edge<V>> edges;
     public final Map<V, Map<V, Integer>> edgesToIndex;
     private final List<Integer> edgeToComponentInWholeGraph;
     private final int componentsNumberInWholeGraph;
     private int[] orderToNumberForComponents;
-    private Map<V, Integer> verticesToDegrees;
-    private double maxDegree;
 
     private static final double SPECIAL_VERTEX_WEIGHT = -1.38033632932348;
 
     public Graph(LinkedHashMap<V, LinkedHashMap<V, S>> edgesAsMap,
-                 LinkedHashMap<V, S> verticesToSignals,
+                 Map<V, S> verticesToSignals,
                  Map<S, Double> signals,
                  List<Edge<V>> edges,
                  Map<V, Map<V, Integer>> edgesToIndex) {
@@ -40,31 +37,25 @@ public class Graph<V extends Comparable<V>, S> implements Cloneable {
         edgeToComponentInWholeGraph = componentsInfo.first;
         componentsNumberInWholeGraph = componentsInfo.second;
         orderToNumberForComponents = orderToNumber();
-        initVerticesToDegrees();
-        maxDegree = (double) Collections.max(verticesToDegrees.values());
     }
 
     /*
      * Main fitness function.
      * 
      * @param 'p':
-     * p < 0 -  return  DoubleNegativeInfinity
+     * p < 0 -  return  Double.NEGATIVE_INFINITY
      * p == 0 - search in whole graph
      * 0 < p < n - search in first 'p' connected components
      * p >= n - search in whole graph
      *  where 'n' - number of connected components in graph
     */
-    public double[] fitness(List<Boolean> originalMask, int p) {
+    public double[] fitness(List<Boolean> mask, int p) {
         if (p < 0) {
-            // Multi
-            double[] result = {Double.NEGATIVE_INFINITY, 0, 0};
-            return result;
+            return new double[]{Double.NEGATIVE_INFINITY, 0};
         }
 
-        List<Boolean> mask = updateMask(originalMask, p);
-
-        // Multi:
-        return multiObjectiveFitness(mask);
+        List<Boolean> updatedMask = updateMask(mask, p);
+        return multiObjectiveFitness(updatedMask);
     }
 
     private static final int NUM_OBJECTIVES = 2;
@@ -72,116 +63,9 @@ public class Graph<V extends Comparable<V>, S> implements Cloneable {
         Pair<List<Integer>, Integer> edgeToComponent = findComponents(mask);
 
         double[] objectives = new double[NUM_OBJECTIVES];
-        // #1
-        // int x = getBiggestByEdgeComponentNumber(mask, edgeToComponent);
-        // objectives[0] = getFitnessOfComponent(mask, edgeToComponent, x);
-
-        // #2
-        // double[] info = getHeaviestComponentInfo(mask, edgeToComponent);
-        // objectives[0] = info[0];
-        // int[] sizes = getComponentSize(edgeToComponent, (int) info[1]);
-        // System.out.println("vertices = " + sizes[0]);
-        // objectives[1] = sizes[0];
-        // objectives[2] = sizes[1];
-
-        // #3 in whole graph
         objectives[0] = edgeToComponent.second;
-        objectives[1] = getFitnessOfComponent(mask, edgeToComponent.first, 0);
-
+        objectives[1] = getFitnessOfComponent(mask, edgeToComponent.first, 0); // in whole graph
         return objectives;
-    }
-    
-    public List<Boolean> getComponentByNumber(List<Boolean> mask, int component) {
-        List<Integer> edgeToComponent = findComponents(mask).first;
-
-        List<Boolean> componentMask = new ArrayList<>(mask.size());
-        for (int i = 0; i < edges.size(); ++i) {
-            if (edgeToComponent.get(i) == component) {
-                componentMask.add(true);
-            } else {
-                componentMask.add(false);
-            }
-        }
-
-        return componentMask;
-    }
-
-    public int getBiggestByEdgeComponentNumber(List<Boolean> mask) {
-        return getBiggestByEdgeComponentNumber(mask, findComponents(mask).first);
-    }
-
-    private int getBiggestByEdgeComponentNumber(List<Boolean> mask,
-                                                List<Integer> edgeToComponent) {
-        int[] compToEdgesNumber = new int[edges.size()];
-        for (int i = 0; i < mask.size(); ++i) {
-            if (mask.get(i)) {
-                ++compToEdgesNumber[edgeToComponent.get(i)];
-            }
-        }
-
-        int res = -1;
-        int edgesNumber = 0;
-        for (int i = 0; i < edges.size(); ++i) {
-            if (compToEdgesNumber[i] > edgesNumber) {
-                res = i;
-                edgesNumber = compToEdgesNumber[i];
-            }
-        }
-
-        return res;
-    }
-
-    // returns: [heaviestComponentFitness, heaviestComponentNumber]
-    public double[] getHeaviestComponentInfo(List<Boolean> mask) {
-        Pair<List<Integer>, Integer> edgeToComponent = findComponents(mask);
-        return getHeaviestComponentInfo(mask, edgeToComponent.first, edgeToComponent.second);
-    }
-
-    // returns: [heaviestComponentFitness, heaviestComponentNumber]
-    private double[] getHeaviestComponentInfo(List<Boolean> mask,
-                                              List<Integer> edgeToComponent,
-                                              int componentsNumber) {
-        double[] componentInfo = new double[2];
-
-        double fitness = Double.NEGATIVE_INFINITY;
-        double component = 0.0;
-        for (int i = 1; i <= componentsNumber; ++i) {
-            double newFitness = getFitnessOfComponent(mask, edgeToComponent, i);
-            if (fitness < newFitness) {
-                fitness = newFitness;
-                component = i;
-            }
-        }
-
-        componentInfo[0] = fitness;
-        componentInfo[1] = component;
-
-        return componentInfo;
-    }
-
-    // returns: [numberOfEdges, numberOfVertices]
-    private int[] getComponentSize(List<Integer> edgeToComponent, int component) {
-        int[] componentSize = new int[2];
-        Map<V, Boolean> isCountedVertex = new HashMap<>();
-        for (int i = 0; i < edges.size(); ++i) {
-            if (edgeToComponent.get(i) == component) {
-                ++componentSize[0];
-                V first = edges.get(i).first;
-                V second = edges.get(i).second;
-
-                if (!isCountedVertex.containsKey(first)) {
-                    isCountedVertex.put(first, true);
-                    ++componentSize[1];
-                }
-
-                if (!isCountedVertex.containsKey(second)) {
-                    isCountedVertex.put(second, true);
-                    ++componentSize[1];
-                }
-            }
-        }
-
-        return componentSize;
     }
 
     private Pair<List<Integer>, Integer> findComponents() {
@@ -195,19 +79,22 @@ public class Graph<V extends Comparable<V>, S> implements Cloneable {
         return findComponents(maskAsList);
     }
 
-    private List<Boolean> toList(boolean[] mask) {
-        List<Boolean> maskAsList = new ArrayList(mask.length);
-        for (int k = 0; k < mask.length; ++k) {
-            maskAsList.add(mask[k]);
+    public List<Boolean> toList(boolean[] mask) {
+        List<Boolean> maskAsList = new ArrayList<>(mask.length);
+        for (boolean isEdgeIn : mask) {
+            maskAsList.add(isEdgeIn);
         }
         return maskAsList;
     }
 
-    // return: list.get(i) = number_of_component , if edge #i match the 'mask'
-    //                       0 , if edge #i doesn't match the 'mask'
+    /*
+     * @return list.first.get(i) = number_of_component , if edge #i match the 'mask'
+     *                             0                   , if edge #i doesn't match the 'mask'
+     *         list.second - number of components
+     */
     public Pair<List<Integer>, Integer> findComponents(List<Boolean> mask) {
         Pair<List<Integer>, Integer> edgeToComponent = new Pair<>(null, 0);
-        // edgeToComponent
+
         edgeToComponent.first = new ArrayList<>(Collections.nCopies(edges.size(), 0));
 
         int componentNumber = 0;
@@ -223,7 +110,6 @@ public class Graph<V extends Comparable<V>, S> implements Cloneable {
         return edgeToComponent;
     }
 
-    // May be called only from 'findComponents(...)' function.
     private void dfs(int edgeNumber, int componentNumber, List<Boolean> mask, List<Integer> edgeToComponent) {
         edgeToComponent.set(edgeNumber, componentNumber);
 
@@ -233,6 +119,7 @@ public class Graph<V extends Comparable<V>, S> implements Cloneable {
         for (Map.Entry<V, S> entry : edgesAsMap.get(first).entrySet()) {
             V firstTo = entry.getKey();
             int indexOfEdge = edgesToIndex.get(first).get(firstTo);
+            // if edge in graph and isn't counted then
             if (mask.get(indexOfEdge) && edgeToComponent.get(indexOfEdge) != componentNumber) {
                 dfs(indexOfEdge, componentNumber, mask, edgeToComponent);
             }
@@ -242,7 +129,6 @@ public class Graph<V extends Comparable<V>, S> implements Cloneable {
         for (Map.Entry<V, S> entry : edgesAsMap.get(second).entrySet()) {
             V secondTo = entry.getKey();
             int indexOfEdge = edgesToIndex.get(second).get(secondTo);
-            // if edge in graph and isn't counted then
             if (mask.get(indexOfEdge) && edgeToComponent.get(indexOfEdge) != componentNumber) {
                 dfs(indexOfEdge, componentNumber, mask, edgeToComponent);
             }
@@ -259,19 +145,13 @@ public class Graph<V extends Comparable<V>, S> implements Cloneable {
                 Edge<V> edge = edges.get(i);
                 uniqueSignals.add(edgesAsMap.get(edge.first).get(edge.second));
 
-                // TODO additional condition: count once only positive weights
-                /*if (signals.get(verticesToSignals.get(edge.first)) < 0) {
-                    fitness += signals.get(verticesToSignals.get(edge.first));
-                } else*/ if (signals.get(verticesToSignals.get(edge.first)) != SPECIAL_VERTEX_WEIGHT) {
+                if (signals.get(verticesToSignals.get(edge.first)) != SPECIAL_VERTEX_WEIGHT) {
                     uniqueSignals.add(verticesToSignals.get(edge.first));
                 } else {
                     fitness += SPECIAL_VERTEX_WEIGHT;
                 }
 
-                // TODO additional condition: count once only positive weights
-                /*if (signals.get(verticesToSignals.get(edge.second)) < 0) {
-                    fitness += signals.get(verticesToSignals.get(edge.second));
-                } else*/ if (signals.get(verticesToSignals.get(edge.second)) != SPECIAL_VERTEX_WEIGHT) {
+                if (signals.get(verticesToSignals.get(edge.second)) != SPECIAL_VERTEX_WEIGHT) {
                     uniqueSignals.add(verticesToSignals.get(edge.second));
                 } else {
                     fitness += SPECIAL_VERTEX_WEIGHT;
@@ -279,15 +159,14 @@ public class Graph<V extends Comparable<V>, S> implements Cloneable {
             }
         }
 
-        Iterator<S> it = uniqueSignals.iterator();
-        while (it.hasNext()) {
-            fitness += signals.get(it.next());
+        for (S uniqueSignal : uniqueSignals) {
+            fitness += signals.get(uniqueSignal);
         }
 
         return fitness;
     }
 
-    public boolean isNewEdgeInConnectedComponent(boolean[] mask, int edgeNumber) {
+    public boolean doesEdgeAddNewConnectedComponent(boolean[] mask, int edgeNumber) {
         List<Boolean> maskAsList = toList(mask);
 
         Edge<V> edge = edges.get(edgeNumber);
@@ -313,38 +192,6 @@ public class Graph<V extends Comparable<V>, S> implements Cloneable {
         return true;
     }
 
-    // Returns sum of 'x' vertices degrees, which are not in mask
-    public double getEdgeDegree(boolean[] mask, int x) {
-        Edge edge = edges.get(x);
-        int resDegree = 0;
-
-        boolean isVertexNeeded = true;
-        for (Map.Entry<V, S> entry : edgesAsMap.get(edge.first).entrySet()) {
-            if (mask[edgesToIndex.get(edge.first).get(entry.getKey())]) {
-                isVertexNeeded = false;
-                break; // edge.first is already in graph
-            }
-        }
-
-        if (isVertexNeeded) {
-            resDegree += verticesToDegrees.get(edge.first);
-        }
-
-        isVertexNeeded = true;
-        for (Map.Entry<V, S> entry : edgesAsMap.get(edge.second).entrySet()) {
-            if (mask[edgesToIndex.get(edge.second).get(entry.getKey())]) {
-                isVertexNeeded = false;
-                break; // edge.first is already in graph
-            }
-        }
-
-        if (isVertexNeeded) {
-            resDegree += verticesToDegrees.get(edge.second);
-        }
-
-        return ((double) resDegree);
-    }
-
     // Returns mask with edges only in first 'p' largest connected components.
     private List<Boolean> updateMask(List<Boolean> mask, int p) {
         if (p == 0) {
@@ -366,18 +213,6 @@ public class Graph<V extends Comparable<V>, S> implements Cloneable {
         }
 
         return newMask;
-    }
-
-    // Returns map of <vertex> -> <degree>
-    private void initVerticesToDegrees() {
-        verticesToDegrees = new HashMap<>(verticesToSignals.size());
-        for (V vertex : verticesToSignals.keySet()) {
-            verticesToDegrees.put(vertex, edgesAsMap.get(vertex).size());
-        }
-    }
-
-    public double getMaxDegree() {
-        return maxDegree;
     }
 
     public List<V> getComponentVertices(int componentNumber, List<Integer> edgeToComponent) {
@@ -442,26 +277,6 @@ public class Graph<V extends Comparable<V>, S> implements Cloneable {
      */
 
     // Get info about subgraph presented by mask:
-    public List<Pair<V, S>> getVerticesToSignalsByMask(List<Boolean> mask) {
-        Set<V> vertices = new HashSet<>();
-        for (int i = 0; i < mask.size(); ++i) {
-            if (mask.get(i)) {
-                vertices.add(edges.get(i).first);
-                vertices.add(edges.get(i).second);
-            }
-        }
-
-        List<Pair<V, S>> result = new ArrayList<>(vertices.size());
-        Iterator<V> it = vertices.iterator();
-        while (it.hasNext()) {
-            V vertex = it.next();
-            result.add(new Pair<>(vertex, verticesToSignals.get(vertex)));
-        }
-
-        return result;
-    }
-
-    // Get info about subgraph presented by mask:
     public Map<V, S> getVerticesToSignalsWithNaN(List<Boolean> mask) {
         Map<V, S> verticesToSignalsWithNaN = new LinkedHashMap<>(verticesToSignals.size());
         for (Map.Entry<V, S> entry : verticesToSignals.entrySet()) {
@@ -476,26 +291,11 @@ public class Graph<V extends Comparable<V>, S> implements Cloneable {
             }
         }
 
-        Iterator<V> it = vertices.iterator();
-        while (it.hasNext()) {
-            V vertex = it.next();
+        for (V vertex : vertices) {
             verticesToSignalsWithNaN.put(vertex, verticesToSignals.get(vertex));
         }
 
         return verticesToSignalsWithNaN;
-    }
-
-    public List<Pair<Edge<V>, S>> getEdgesToSignalsByMask(List<Boolean> mask) {
-        List<Pair<Edge<V>, S>> result = new ArrayList<>();
-
-        for (int i = 0; i < mask.size(); ++i) {
-            if (mask.get(i)) {
-                Edge e = edges.get(i);
-                result.add(new Pair(e, edgesAsMap.get(e.first).get(e.second)));
-            }
-        }
-
-        return result;
     }
 
     public List<Pair<Edge<V>, S>> getEdgesToSignalsWithNaN(List<Boolean> mask) {
@@ -517,7 +317,7 @@ public class Graph<V extends Comparable<V>, S> implements Cloneable {
       Dijkstra
       */
 
-    // Argument 'parent' is assigned and 'returned'
+    // Argument 'parent' is assigned and returned
     public Map<V, Double> dijkstra(V start, Map<S, Boolean> contextMap, Map<V, V> parent) {
         Map<V, Double> shortestPath = new HashMap<>(verticesToSignals.keySet().size());
         for (V vertex : verticesToSignals.keySet()) {

@@ -15,13 +15,6 @@ public class GraphMutatorPipeline extends BreedingPipeline {
     public static final String P_MYMUTATION = "my-mutation";
     private static Graph graph;
 
-    // todo
-    private static int counter = 0;
-    private static List<Boolean> initialPopulation;
-    public static void setInitialPopulation(List<Boolean> initialPopulation) {
-        GraphMutatorPipeline.initialPopulation = initialPopulation;
-    }
-
     private static boolean isGraphSet = false;
     public static void setGraph(Graph graph) {
         if (!isGraphSet) {
@@ -29,8 +22,6 @@ public class GraphMutatorPipeline extends BreedingPipeline {
             isGraphSet = true;
         }
     }
-
-
 
     // We have to specify a default base, even though we never use it
     public Parameter defaultBase() {
@@ -90,7 +81,8 @@ public class GraphMutatorPipeline extends BreedingPipeline {
 
         // mutate 'em!
         for(int q = start; q < (n + start); ++q) {
-            if (counter < 50) {
+            // TODO
+            /*if (counter < MILESTONE) {
                 BitVectorIndividual i = (BitVectorIndividual)inds[q];
                 for (int j = 0; j < i.genome.length; ++j) {
                     i.genome[j] = initialPopulation.get(j);
@@ -98,12 +90,11 @@ public class GraphMutatorPipeline extends BreedingPipeline {
 
                 counter++;
                 continue;
-            }
+            }*/
 
             BitVectorIndividual i = (BitVectorIndividual)inds[q];
 
             // first part
-            // TODO connect all connected components with some possibility
             // Let's connect two random connected component
             List<Integer> edgesToComponents = (List) graph.findComponents(i.genome).first;
             List<Integer> componentNumbers = getLeftComponentsNumbers(edgesToComponents);
@@ -128,10 +119,10 @@ public class GraphMutatorPipeline extends BreedingPipeline {
 
             // second part
             for(int x = 0; x < i.genome.length; ++x) {
-                // #1 Add new edge which is not in any connected component with lower probability
+                // Add new edge which is not in any connected component with lower probability
                 if (!i.genome[x]) {
                     double prob = species.mutationProbability(x);
-                    if (graph.isNewEdgeInConnectedComponent(i.genome, x)) {
+                    if (graph.doesEdgeAddNewConnectedComponent(i.genome, x)) {
                         prob *= prob;
                     }
 
@@ -143,33 +134,6 @@ public class GraphMutatorPipeline extends BreedingPipeline {
                         i.genome[x] = false;
                     }
                 }
-
-                // #2 Connection && degree
-                /*
-                add private static final double DEGREE_COEF = 5.0; // TODO must be (< 1.0)
-                double edgeDegree = graph.getEdgeDegree(i.genome, x) / graph.getMaxDegree();
-                if (!i.genome[x]) {
-                    double prob = species.mutationProbability(x);
-                    if (graph.isNewEdgeInConnectedComponent(i.genome, x)) {
-                        prob *= prob;
-                    }
-
-                    if (state.random[thread].nextBoolean(prob * (1.0 + DEGREE_COEF * edgeDegree))) {
-                        i.genome[x] = true;
-                    }
-                } else {
-                    if (state.random[thread].nextBoolean(species.mutationProbability(x))) {
-                        i.genome[x] = false;
-                    }
-                }*/
-
-                // #3 Ordinary mutation
-                /*
-                if (state.random[thread].nextBoolean(species.mutationProbability(x))) {
-                    i.genome[x] = !i.genome[x];
-                }
-                */
-
             }
 
             // it's a "new" individual, so it's no longer been evaluated

@@ -48,7 +48,7 @@ public class GraphIndividual extends BitVectorIndividual {
                 List<Integer> componentsFirst = (List) graph.findComponents(genome).first;
                 List<Integer> componentsSecond = (List) graph.findComponents(i.genome).first;
 
-                // put genome and i.genome to be equal to intersect
+                // put 'genome' and 'i.genome' to be equal to 'intersect'
                 System.arraycopy(intersect, 0, genome, 0, genome.length);
                 System.arraycopy(intersect, 0, i.genome, 0, i.genome.length);
 
@@ -156,9 +156,8 @@ public class GraphIndividual extends BitVectorIndividual {
         // So every edge from former connected component will be put in only
         // one individual.
         Map<Integer, Boolean> componentToInds = new HashMap<>(componentsNumbers.size());
-        Iterator<Integer> it = componentsNumbers.iterator();
-        while (it.hasNext()) {
-            componentToInds.put(it.next(), state.random[thread].nextBoolean());
+        for (Integer componentsNumber : componentsNumbers) {
+            componentToInds.put(componentsNumber, state.random[thread].nextBoolean());
         }
 
         // rewrite genome and i.genome
