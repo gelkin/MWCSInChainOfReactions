@@ -81,17 +81,6 @@ public class GraphMutatorPipeline extends BreedingPipeline {
 
         // mutate 'em!
         for(int q = start; q < (n + start); ++q) {
-            // TODO
-            /*if (counter < MILESTONE) {
-                BitVectorIndividual i = (BitVectorIndividual)inds[q];
-                for (int j = 0; j < i.genome.length; ++j) {
-                    i.genome[j] = initialPopulation.get(j);
-                }
-
-                counter++;
-                continue;
-            }*/
-
             BitVectorIndividual i = (BitVectorIndividual)inds[q];
 
             // first part

@@ -156,8 +156,9 @@ public class GraphIndividual extends BitVectorIndividual {
         // So every edge from former connected component will be put in only
         // one individual.
         Map<Integer, Boolean> componentToInds = new HashMap<>(componentsNumbers.size());
-        for (Integer componentsNumber : componentsNumbers) {
-            componentToInds.put(componentsNumber, state.random[thread].nextBoolean());
+        Iterator<Integer> it = componentsNumbers.iterator();
+        while (it.hasNext()) {
+            componentToInds.put(it.next(), state.random[thread].nextBoolean());
         }
 
         // rewrite genome and i.genome

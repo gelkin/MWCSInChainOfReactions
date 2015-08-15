@@ -3,7 +3,6 @@ package ru.ifmo.ctddev.mazin.MWCSInChainOfReactions;
 import java.util.*;
 
 /**
- *
  * @param <V> - vertex type
  * @param <S> - signal type
  */
@@ -19,7 +18,7 @@ public class Graph<V extends Comparable<V>, S> implements Cloneable {
     private final int componentsNumberInWholeGraph;
     private int[] orderToNumberForComponents;
 
-    private static final double SPECIAL_VERTEX_WEIGHT = -1.38033632932348;
+    private final double SPECIAL_VERTEX_WEIGHT;
 
     public Graph(LinkedHashMap<V, LinkedHashMap<V, S>> edgesAsMap,
                  Map<V, S> verticesToSignals,
@@ -32,6 +31,8 @@ public class Graph<V extends Comparable<V>, S> implements Cloneable {
         this.signals = signals;
         this.edges = edges;
         this.edgesToIndex = edgesToIndex;
+
+        SPECIAL_VERTEX_WEIGHT = getLowestVertexWeight();
 
         Pair<List<Integer>, Integer> componentsInfo = findComponents();
         edgeToComponentInWholeGraph = componentsInfo.first;
@@ -89,8 +90,8 @@ public class Graph<V extends Comparable<V>, S> implements Cloneable {
 
     /*
      * @return list.first.get(i) = number_of_component , if edge #i match the 'mask'
-     *                             0                   , if edge #i doesn't match the 'mask'
-     *         list.second - number of components
+     *                           = 0                   , if edge #i doesn't match the 'mask'
+     *         where 'list.second' - number of components
      */
     public Pair<List<Integer>, Integer> findComponents(List<Boolean> mask) {
         Pair<List<Integer>, Integer> edgeToComponent = new Pair<>(null, 0);
@@ -190,6 +191,16 @@ public class Graph<V extends Comparable<V>, S> implements Cloneable {
         }
 
         return true;
+    }
+
+    private double getLowestVertexWeight() {
+        double lowestVertexWeight = Double.MAX_VALUE;
+        for (Map.Entry<V, S> entry : verticesToSignals.entrySet()) {
+            if (signals.get(entry.getValue()) < lowestVertexWeight) {
+                lowestVertexWeight = signals.get(entry.getValue());
+            }
+        }
+        return lowestVertexWeight;
     }
 
     // Returns mask with edges only in first 'p' largest connected components.

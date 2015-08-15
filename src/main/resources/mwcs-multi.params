@@ -45,7 +45,7 @@ pop.subpop.0.species.genome-size	= genome-size-from-file
 # ATTENTION! graph-crossover (for confirmation, look through GraphIndividual class)
 pop.subpop.0.species.crossover-type	= one
 pop.subpop.0.species.mutation-type	= flip
-pop.subpop.0.species.mutation-prob	= 0.005
+pop.subpop.0.species.mutation-prob	= mutation-prob-from-file
 
 # Use custom mutation class
 pop.subpop.0.species.pipe = ru.ifmo.ctddev.mazin.MWCSInChainOfReactions.GraphMutatorPipeline

@@ -7,13 +7,13 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 public class Solver {
-    // TODO src/main/resources/true-solution-edges.txt
     private static final String FILE_PARAM = "-file";
     private static final String PARAM_IDENTIFIER = "-p";
     private static final String GENOME_SIZE_PARAM = "pop.subpop.0.species.genome-size=";
     private static final String INITIAL_POP_PARAM = "pop.subpop.0.file=";
-    private static final String SUPPOPS_SIZE_PARAM = "pop.subpop.0.size =";
-    private static int SUPPOPS_SIZE = 50;
+    private static final String SUBPOPS_SIZE_PARAM = "pop.subpop.0.size=";
+    private static final String MUTATION_PROB_PARAM = "pop.subpop.0.species.mutation-prob=";
+    private static final int SUBPOPULATION_SIZE = 50;
     private static final String VERTICES_OUTFILE_NAME = "./src/main/resources/result-nodes.txt";
     private static final String EDGES_OUTFILE_NAME = "./src/main/resources/result-edges.txt";
     private static final String NUMBER_TO_FITNESS_CSV = "./src/main/resources/number_to_fitness.csv";
@@ -33,69 +33,62 @@ public class Solver {
         if (args.length < 3) {
             System.out.println("Too few arguments");
             return;
-        }
-        String verticesFile = args[0];
-        String edgesFile = args[1];
-        String signalsFile = args[2];
-
-        graph = initGraphFromFiles(verticesFile, edgesFile, signalsFile);
-        if (graph == null) {
+        } else if (args.length > 4) {
+            System.out.println("Too many arguments");
             return;
         }
 
-        setGraph(graph);
+        try {
+            String verticesFile = args[0];
+            String edgesFile = args[1];
+            String signalsFile = args[2];
 
-        int numberOfEdges = getNumberOfLinesInFile(edgesFile);
-        if (numberOfEdges == -1) {
-            return;
-        }
+            graph = initGraphFromFiles(verticesFile, edgesFile, signalsFile);
+            setGraph(graph);
+            int numberOfEdges = getNumberOfLinesInFile(edgesFile);
 
-        final String[] newArgs;
-        if (args.length == 3) {
-            newArgs = new String[6];
-        } else {
-            // We have a file to set initial population
-            newArgs = new String[8];
+            List<String> newArgs = new ArrayList<>();
+            // add parameters file
+            newArgs.add(FILE_PARAM);
+            newArgs.add(parametersFile);
+            // set number of edges in graph - individual.genome size
+            newArgs.add(PARAM_IDENTIFIER);
+            newArgs.add(GENOME_SIZE_PARAM + numberOfEdges);
+            // set size of (sub)population
+            newArgs.add(PARAM_IDENTIFIER);
+            newArgs.add(SUBPOPS_SIZE_PARAM + SUBPOPULATION_SIZE);
+            // set mutation probability (depends on number of edges)
+            newArgs.add(PARAM_IDENTIFIER);
+            newArgs.add(MUTATION_PROB_PARAM + (1.0 / numberOfEdges));
+            if (args.length == 4) {
+                // We have to set initial population
+                String initialPopFile = args[3];
+                createFileWithInitialPopInNSGA2Style(initialPopFile);
 
-            String initialPopFile = args[3];
-            if (!createFileWithInitialPop(initialPopFile)) {
-                return;
+                // set initial population
+                newArgs.add(PARAM_IDENTIFIER);
+                newArgs.add(INITIAL_POP_PARAM + "$" + INITIAL_POP_ECJ_STYLE_FILE);
             }
-            newArgs[6] = PARAM_IDENTIFIER;
-            newArgs[7] = INITIAL_POP_PARAM + "$" + INITIAL_POP_ECJ_STYLE_FILE;
-        }
-        newArgs[0] = FILE_PARAM;
-        newArgs[1] = parametersFile;
-        newArgs[2] = PARAM_IDENTIFIER;
-        newArgs[3] = GENOME_SIZE_PARAM + numberOfEdges;
-        newArgs[4] = PARAM_IDENTIFIER;
-        newArgs[5] = SUPPOPS_SIZE_PARAM + SUPPOPS_SIZE;
 
-        EvolveHelper.mainHelper(newArgs);
+            EvolveHelper.mainHelper(newArgs.toArray(new String[newArgs.size()]));
 
-        // #1 Get best connected individual (with 1.0 connected component)
-        List<Boolean> bestIndividual = getBestConnectedIndividual();
-        if (bestIndividual == null || !writeResults(bestIndividual)) {
-            return;
+            // #1 Get best connected individual (with 1.0 connected component)
+            List<Boolean> bestIndividual = getBestConnectedIndividual();
+            writeResults(bestIndividual);
+            // #2 Check: if we got connected individual
+            List<Integer> edgesToComponents = (List) graph.findComponents(bestIndividual).first;
+            writeConnectedComponents(edgesToComponents, bestIndividual);
+            // #3 Write statistics by first objective
+            writeNumberToFitnessStat();
+
+        } catch (MWCSException me) {
+            System.out.println("Exception caught:\n" + me.toString());
         }
-        // #2 Check: if we got connected individual
-        List<Integer> edgesToComponents = (List) graph.findComponents(bestIndividual).first;
-        if (!writeConnectedComponents(edgesToComponents, bestIndividual)) {
-            return;
-        }
-        // #3 Write statistics by first objective
-        writeNumberToFitnessStat();
     }
 
-    private Graph initGraphFromFiles(String verticesFile, String edgesFile, String signalsFile) {
+    private Graph initGraphFromFiles(String verticesFile, String edgesFile, String signalsFile) throws MWCSException {
         Map<String, String> verticesToSignal = initVerticesFromFile(verticesFile);
-        if (verticesToSignal == null) {
-            return null;
-        }
         Map<String, Double> signals = initSignalsFromFile(signalsFile);
-        if (signals == null) {
-            return null;
-        }
 
         // Edges:
         LinkedHashMap<String, LinkedHashMap<String, String>> edgesAsMap = new LinkedHashMap<>();
@@ -136,19 +129,15 @@ public class Solver {
             }
 
         } catch (FileNotFoundException e) {
-            System.out.println("Cannot find file " + edgesFile + ".");
-            e.printStackTrace();
-            return null;
+            throw new MWCSException("Cannot find file " + edgesFile + ".");
         } catch (IOException e) {
-            System.out.println("Error occurred while reading from file " + edgesFile + ".");
-            e.printStackTrace();
-            return null;
+            throw new MWCSException("Error occurred while reading from file " + edgesFile + ".");
         }
 
         return new Graph<>(edgesAsMap, verticesToSignal, signals, edges, edgesToIndex);
     }
 
-    private Map<String, String> initVerticesFromFile(String verticesFile) {
+    private Map<String, String> initVerticesFromFile(String verticesFile) throws MWCSException {
         Map<String, String> verticesToSignal = new HashMap<>();
         try(BufferedReader br = new BufferedReader(new FileReader(verticesFile))) {
             String line = br.readLine();
@@ -164,18 +153,14 @@ public class Solver {
             }
 
         } catch (FileNotFoundException e) {
-            System.out.println("Cannot find file " + verticesFile + ".");
-            e.printStackTrace();
-            return null;
+            throw new MWCSException("Cannot find file " + verticesFile + ".");
         } catch (IOException e) {
-            System.out.println("Error occurred while reading from file " + verticesFile + ".");
-            e.printStackTrace();
-            return null;
+            throw new MWCSException("Error occurred while reading from file " + verticesFile + ".");
         }
         return verticesToSignal;
     }
 
-    private Map<String, Double> initSignalsFromFile(String signalsFile) {
+    private Map<String, Double> initSignalsFromFile(String signalsFile) throws MWCSException {
         Map<String, Double> signals = new HashMap<>();
         try(BufferedReader br = new BufferedReader(new FileReader(signalsFile))) {
             String line = br.readLine();
@@ -191,22 +176,39 @@ public class Solver {
             }
 
         } catch (FileNotFoundException e) {
-            System.out.println("Cannot find file " + signalsFile + ".");
-            e.printStackTrace();
-            return null;
+            throw new MWCSException("Cannot find file " + signalsFile + ".");
         } catch (IOException e) {
-            System.out.println("Error occurred while reading from file " + signalsFile + ".");
-            e.printStackTrace();
-            return null;
+            throw new MWCSException("Error occurred while reading from file " + signalsFile + ".");
         }
         return signals;
     }
 
-    private boolean createFileWithInitialPop(String initialPopFile) {
-        Map<String, Map<String, Boolean>> initialPopAsEdges = initInitialPopAsEdges(initialPopFile);
-        if (initialPopAsEdges == null) {
-            return false;
+    private void setGraph(Graph graph) {
+        MWCGProblem.setGraph(graph);
+        GraphMutatorPipeline.setGraph(graph);
+        GraphIndividual.setGraph(graph);
+    }
+
+    private int getNumberOfLinesInFile(String fileName) throws MWCSException {
+        int linesNumber = 0;
+        try(BufferedReader br = new BufferedReader(new FileReader(fileName))) {
+            String line = br.readLine();
+
+            while (line != null) {
+                ++linesNumber;
+                line = br.readLine();
+            }
+        } catch (FileNotFoundException e) {
+            throw new MWCSException("Cannot find file " + fileName + ".");
+        } catch (IOException e) {
+            throw new MWCSException("Error occurred while reading from file.");
         }
+
+        return linesNumber;
+    }
+
+    private void createFileWithInitialPopInNSGA2Style(String initialPopFile) throws MWCSException {
+        Map<String, Map<String, Boolean>> initialPopAsEdges = initInitialPopAsEdges(initialPopFile);
 
         List<Boolean> mask = new ArrayList<>(graph.edges.size());
         StringBuilder ecjStyleIndividual = new StringBuilder(graph.edges.size());
@@ -227,14 +229,14 @@ public class Solver {
         try (FileOutputStream fos   = new FileOutputStream(INITIAL_POP_ECJ_STYLE_FILE);
              BufferedWriter bw      = new BufferedWriter(new OutputStreamWriter(fos))) {
 
-            bw.write("Number of Individuals: i" + SUPPOPS_SIZE + "|");
+            bw.write("Number of Individuals: i" + SUBPOPULATION_SIZE + "|");
             bw.newLine();
-            for (int i = 0; i < SUPPOPS_SIZE; ++i) {
+            for (int i = 0; i < SUBPOPULATION_SIZE; ++i) {
                 bw.write("Individual Number: i" + i + "|");
                 bw.newLine();
                 bw.write("Evaluated: T");
                 bw.newLine();
-                bw.write("Fitness: [d|" + fitness[0] + "| d|" + fitness[1] + "|]");
+                bw.write("Fitness: [d|" + fitness[0] + "|d|" + fitness[1] + "|]");
                 bw.newLine();
                 bw.write("Rank: i0|");
                 bw.newLine();
@@ -246,14 +248,11 @@ public class Solver {
 
             bw.close();
         } catch (IOException e) {
-            System.out.println("Error occurred while writing edges to file " + INITIAL_POP_ECJ_STYLE_FILE + ".");
-            e.printStackTrace();
-            return false;
+            throw new MWCSException("Error occurred while writing edges to file " + INITIAL_POP_ECJ_STYLE_FILE + ".");
         }
-        return true;
     }
 
-    private Map<String, Map<String, Boolean>> initInitialPopAsEdges(String initialPopFile) {
+    private Map<String, Map<String, Boolean>> initInitialPopAsEdges(String initialPopFile) throws MWCSException {
         Map<String, Map<String, Boolean>> edgesAsMap = new HashMap<>();
         try(BufferedReader br = new BufferedReader(new FileReader(initialPopFile))) {
             String line = br.readLine();
@@ -283,53 +282,19 @@ public class Solver {
                 line = br.readLine();
             }
         } catch (FileNotFoundException e) {
-            System.out.println("Cannot find file " + initialPopFile + ".");
-            e.printStackTrace();
-            return null;
+            throw new MWCSException("Cannot find file " + initialPopFile + ".");
         } catch (IOException e) {
-            System.out.println("Error occurred while reading from file " + initialPopFile + ".");
-            e.printStackTrace();
-            return null;
+            throw new MWCSException("Error occurred while reading from file " + initialPopFile + ".");
         }
         return edgesAsMap;
     }
 
-    private void setGraph(Graph graph) {
-        MWCGProblem.setGraph(graph);
-        GraphMutatorPipeline.setGraph(graph);
-        GraphIndividual.setGraph(graph);
+    private void writeResults(List<Boolean> mask) throws MWCSException {
+        writeResultVertices(mask);
+        writeResultEdges(mask);
     }
 
-    private int getNumberOfLinesInFile(String fileName) {
-        int linesNumber = 0;
-        try(BufferedReader br = new BufferedReader(new FileReader(fileName))) {
-            String line = br.readLine();
-
-            while (line != null) {
-                ++linesNumber;
-                line = br.readLine();
-            }
-        } catch (FileNotFoundException e) {
-            System.out.println("Cannot find file " + fileName + ".");
-            e.printStackTrace();
-            linesNumber = -1;
-        } catch (IOException e) {
-            System.out.println("Error occurred while reading from file.");
-            e.printStackTrace();
-            linesNumber = -1;
-        }
-
-        return linesNumber;
-    }
-
-    private boolean writeResults(List<Boolean> mask) {
-        if (!writeResultVertices(mask)) {
-            return false;
-        }
-        return writeResultEdges(mask);
-    }
-
-    private boolean writeResultVertices(List<Boolean> mask) {
+    private void writeResultVertices(List<Boolean> mask) throws MWCSException {
         Map<String, String> verticesToSignals = graph.getVerticesToSignalsWithNaN(mask);
         try (FileOutputStream fos   = new FileOutputStream(VERTICES_OUTFILE_NAME);
              BufferedWriter bw      = new BufferedWriter(new OutputStreamWriter(fos))) {
@@ -343,37 +308,30 @@ public class Solver {
 
             bw.close();
         } catch (IOException e) {
-            System.out.println("Error occurred while writing vertices to file " + VERTICES_OUTFILE_NAME + ".");
-            e.printStackTrace();
-            return false;
+            throw new MWCSException("Error occurred while writing vertices to file " + VERTICES_OUTFILE_NAME + ".");
         }
-        return true;
     }
 
-    private boolean writeResultEdges(List<Boolean> mask) {
+    private void writeResultEdges(List<Boolean> mask) throws MWCSException {
         List<Pair<Edge<String>, String>> edgesToSignals = graph.getEdgesToSignalsWithNaN(mask);
         try (FileOutputStream fos   = new FileOutputStream(EDGES_OUTFILE_NAME);
              BufferedWriter bw      = new BufferedWriter(new OutputStreamWriter(fos))) {
 
             bw.write("#nodeA" + "\t" + "nodeB" + "\t" + "score1");
             bw.newLine();
-            for (int i = 0; i < edgesToSignals.size(); i++) {
-                Pair<Edge<String>, String> edge = edgesToSignals.get(i);
+            for (Pair<Edge<String>, String> edge : edgesToSignals) {
                 bw.write(edge.first.first + "\t" + edge.first.second + "\t" + graph.signals.get(edge.second));
                 bw.newLine();
             }
 
             bw.close();
         } catch (IOException e) {
-            System.out.println("Error occurred while writing edges to file " + EDGES_OUTFILE_NAME + ".");
-            e.printStackTrace();
-            return false;
+            throw new MWCSException("Error occurred while writing edges to file " + EDGES_OUTFILE_NAME + ".");
         }
-        return true;
     }
 
     private static Pattern ALL_STAT_PATTERN = Pattern.compile("\\[(.*?) (.*?)\\]");
-    private List<Boolean> getBestConnectedIndividual() {
+    private List<Boolean> getBestConnectedIndividual() throws MWCSException {
         try (BufferedReader br  = new BufferedReader(new FileReader(statFile))) {
             String line;
             Pair<Double, String> maxWeightSubgraph = new Pair<>(-Double.MAX_VALUE, "");
@@ -409,13 +367,11 @@ public class Solver {
 
             return mask;
         } catch (IOException e) {
-            System.out.println("Error occurred while reading from file " + statFile + ".");
-            e.printStackTrace();
-            return null;
+            throw new MWCSException("Error occurred while reading from file " + statFile + ".");
         }
     }
 
-    private boolean writeConnectedComponents(List<Integer> edgesToComponents, List<Boolean> mask) {
+    private void writeConnectedComponents(List<Integer> edgesToComponents, List<Boolean> mask) throws MWCSException {
         Map<Integer, List<Integer>> components = new HashMap<>();
         for (int i = 0; i < edgesToComponents.size(); ++i) {
             if (edgesToComponents.get(i) != 0) {
@@ -441,15 +397,12 @@ public class Solver {
                 }
             }
         } catch (IOException e) {
-            System.out.println("Error occurred while writing to file " + RESULT_COMPONENTS_FILE + ".");
-            e.printStackTrace();
-            return false;
+            throw new MWCSException("Error occurred while writing to file " + RESULT_COMPONENTS_FILE + ".");
         }
-        return true;
     }
 
     private static Pattern NUMBER_TO_FITNESS_PATTERN = Pattern.compile("(\\[)(.*?)((\\])|( ))");
-    public boolean writeNumberToFitnessStat() {
+    public void writeNumberToFitnessStat() throws MWCSException {
         try (BufferedReader br  = new BufferedReader(new FileReader(statFile));
              PrintWriter out    = new PrintWriter(new File(NUMBER_TO_FITNESS_CSV))) {
 
@@ -467,10 +420,7 @@ public class Solver {
             }
 
         } catch (IOException e) {
-            System.out.println("Error occurred while reading from file " + statFile + ".");
-            e.printStackTrace();
-            return false;
+            throw new MWCSException("Error occurred while reading from file " + statFile + ".");
         }
-        return true;
     }
 }
